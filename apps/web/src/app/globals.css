@@ -1,0 +1,142 @@
+@import "tailwindcss";
+
+/* QUVR Pulse — "instrument panel" theme: graphite, warm paper text, signal amber. */
+@theme {
+  --color-ink: #0e0f0d;
+  --color-panel: #161714;
+  --color-panel-2: #1d1e1a;
+  --color-rule: #2c2d27;
+  --color-paper: #ece6d6;
+  --color-muted: #9a9585;
+  --color-dim: #6b675c;
+  --color-signal: #ffb000;
+  --color-signal-dim: #7a5a12;
+  --color-risk-low: #5ec8c0; /* teal, deliberately not "safe green" */
+  --color-risk-elevated: #ffb000;
+  --color-risk-high: #ff5a3c;
+  --color-risk-critical: #ff2d55;
+  --color-risk-none: #6b675c;
+  --font-display: var(--font-unbounded), ui-sans-serif, sans-serif;
+  --font-sans: var(--font-plex), ui-sans-serif, sans-serif;
+  --font-mono: var(--font-plex-mono), ui-monospace, monospace;
+}
+
+:root {
+  color-scheme: dark;
+}
+
+html {
+  background: var(--color-ink);
+}
+
+body {
+  background-color: var(--color-ink);
+  background-image:
+    radial-gradient(1200px 600px at 85% -10%, rgb(255 176 0 / 0.07), transparent 60%),
+    radial-gradient(900px 500px at -10% 110%, rgb(94 200 192 / 0.05), transparent 60%),
+    repeating-linear-gradient(0deg, rgb(255 255 255 / 0.018) 0 1px, transparent 1px 4px);
+  color: var(--color-paper);
+  font-family: var(--font-sans);
+  min-height: 100dvh;
+  -webkit-font-smoothing: antialiased;
+}
+
+::selection {
+  background: var(--color-signal);
+  color: var(--color-ink);
+}
+
+.num {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+
+.label {
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--color-muted);
+}
+
+.panel {
+  background: linear-gradient(180deg, var(--color-panel) 0%, var(--color-panel-2) 100%);
+  border: 1px solid var(--color-rule);
+  border-radius: 4px;
+  position: relative;
+}
+
+/* Corner ticks — instrument-bezel detail. */
+.panel::before,
+.panel::after {
+  content: "";
+  position: absolute;
+  width: 8px;
+  height: 8px;
+  border-color: var(--color-signal-dim);
+  pointer-events: none;
+}
+.panel::before {
+  top: -1px;
+  left: -1px;
+  border-top: 1px solid;
+  border-left: 1px solid;
+}
+.panel::after {
+  bottom: -1px;
+  right: -1px;
+  border-bottom: 1px solid;
+  border-right: 1px solid;
+}
+
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.rise {
+  animation: rise 0.5s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+}
+
+@keyframes trace {
+  from {
+    stroke-dashoffset: 400;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+.trace {
+  stroke-dasharray: 400;
+  animation: trace 2.4s ease-out both;
+}
+
+@keyframes blink {
+  50% {
+    opacity: 0.25;
+  }
+}
+.blink {
+  animation: blink 1.6s steps(2, start) infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .rise,
+  .trace,
+  .blink {
+    animation: none;
+  }
+}
+
+a:focus-visible,
+button:focus-visible,
+input:focus-visible,
+select:focus-visible {
+  outline: 2px solid var(--color-signal);
+  outline-offset: 2px;
+}

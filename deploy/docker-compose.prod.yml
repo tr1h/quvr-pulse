@@ -1,0 +1,112 @@
+# Production stack for a single small VPS (4 GB RAM).
+# Run from the repo root:  docker compose --env-file .env.production -f deploy/docker-compose.prod.yml up -d --build
+name: quvr-pulse-prod
+
+x-app: &app
+  image: quvr-pulse-app
+  restart: unless-stopped
+  env_file: ../.env.production
+  environment:
+    NODE_ENV: production
+    DATABASE_URL: postgresql://quvr:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}@postgres:5432/quvr_pulse?schema=public
+    REDIS_URL: redis://redis:6379
+  depends_on:
+    postgres: { condition: service_healthy }
+    redis: { condition: service_healthy }
+  logging:
+    driver: json-file
+    options: { max-size: "10m", max-file: "3" }
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: quvr
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}
+      POSTGRES_DB: quvr_pulse
+    command: ["postgres", "-c", "shared_buffers=128MB", "-c", "max_connections=60"]
+    volumes: [pgdata:/var/lib/postgresql/data]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U quvr -d quvr_pulse"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+    mem_limit: 512m
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    # BullMQ needs noeviction; the cap keeps a runaway cache from eating the VPS.
+    command: ["redis-server", "--appendonly", "yes", "--maxmemory", "200mb", "--maxmemory-policy", "noeviction"]
+    volumes: [redisdata:/data]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+    mem_limit: 256m
+
+  migrate:
+    <<: *app
+    build: { context: .., dockerfile: Dockerfile }
+    restart: "no"
+    command: ["npx", "prisma", "migrate", "deploy", "--schema", "packages/db/prisma/schema.prisma"]
+
+  web:
+    <<: *app
+    command: ["npx", "next", "start", "-p", "3000"]
+    working_dir: /app/apps/web
+    depends_on:
+      migrate: { condition: service_completed_successfully }
+    environment:
+      NODE_ENV: production
+      NODE_OPTIONS: --max-old-space-size=768
+      DATABASE_URL: postgresql://quvr:${POSTGRES_PASSWORD}@postgres:5432/quvr_pulse?schema=public
+      REDIS_URL: redis://redis:6379
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    mem_limit: 1g
+
+  worker:
+    <<: *app
+    command: ["node", "--import", "tsx", "src/index.ts"]
+    working_dir: /app/apps/worker
+    depends_on:
+      migrate: { condition: service_completed_successfully }
+    environment:
+      NODE_ENV: production
+      NODE_OPTIONS: --max-old-space-size=512
+      DATABASE_URL: postgresql://quvr:${POSTGRES_PASSWORD}@postgres:5432/quvr_pulse?schema=public
+      REDIS_URL: redis://redis:6379
+    mem_limit: 768m
+
+  bot:
+    <<: *app
+    command: ["node", "--import", "tsx", "src/index.ts"]
+    working_dir: /app/apps/telegram
+    depends_on:
+      migrate: { condition: service_completed_successfully }
+    mem_limit: 256m
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports: ["${HTTP_PORT:-80}:80", "${HTTPS_PORT:-443}:443", "${HTTPS_PORT:-443}:443/udp"]
+    environment:
+      SITE_ADDRESS: ${SITE_ADDRESS:-:80}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddydata:/data
+      - caddyconfig:/config
+    depends_on: [web]
+    mem_limit: 128m
+
+volumes:
+  pgdata:
+  redisdata:
+  caddydata:
+  caddyconfig:

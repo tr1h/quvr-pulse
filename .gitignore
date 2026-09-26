@@ -1,0 +1,30 @@
+node_modules/
+.next/
+out/
+dist/
+coverage/
+*.tsbuildinfo
+.env
+.env.*
+!.env.example
+playwright-report/
+test-results/
+.turbo/
+*.log
+next-env.d.ts
+
+# Database dumps on the server
+backups/
+
+# Local assistant settings
+.claude/
+
+# Hardhat build output
+contracts/artifacts/
+contracts/cache/
+
+# Deploy target (server address stays local)
+deploy/.host
+
+# Internal marketing drafts stay local
+docs/marketing/

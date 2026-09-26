@@ -1,0 +1,28 @@
+# SITE_ADDRESS: ":80" while there is no domain; "quvrpulse.com, www.quvrpulse.com" afterwards
+# (Caddy then obtains and renews Let's Encrypt certificates automatically).
+{$SITE_ADDRESS::80} {
+	encode zstd gzip
+
+	# One canonical host for search engines: www → apex (301).
+	@www expression {host}.startsWith("www.")
+	redir @www https://{http.request.host.labels.1}.{http.request.host.labels.0}{uri} permanent
+
+	# Telegram webhook → bot container (the bot verifies the secret token header).
+	handle /telegram/webhook {
+		reverse_proxy bot:8787
+	}
+
+	handle {
+		reverse_proxy web:3000
+	}
+
+	header {
+		Strict-Transport-Security "max-age=31536000"
+		-Server
+	}
+
+	log {
+		output stdout
+		format console
+	}
+}

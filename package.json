@@ -1,0 +1,51 @@
+{
+  "name": "quvr-pulse",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "QUVR Pulse — independent read-only analytics and risk scanner for Robinhood Chain tokens.",
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
+  "engines": {
+    "node": ">=20.11"
+  },
+  "scripts": {
+    "postinstall": "npm run db:generate",
+    "predev": "node scripts/predev.mjs",
+    "dev": "concurrently --restart-tries 5 --restart-after 5000 -n web,worker,bot -c cyan,magenta,yellow \"npm run dev -w @quvr/web\" \"npm run dev -w @quvr/worker\" \"npm run dev -w @quvr/telegram\"",
+    "dev:web": "npm run dev -w @quvr/web",
+    "build": "npm run build -w @quvr/web",
+    "start": "concurrently -k -n web,worker,bot \"npm run start -w @quvr/web\" \"npm run start -w @quvr/worker\" \"npm run start -w @quvr/telegram\"",
+    "db:generate": "prisma generate --schema packages/db/prisma/schema.prisma",
+    "db:migrate": "prisma migrate deploy --schema packages/db/prisma/schema.prisma",
+    "db:migrate:dev": "prisma migrate dev --schema packages/db/prisma/schema.prisma",
+    "db:studio": "prisma studio --schema packages/db/prisma/schema.prisma",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:e2e": "playwright test",
+    "typecheck": "tsc -p tsconfig.json --noEmit && npm run typecheck -w @quvr/web",
+    "lint": "eslint .",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "probe": "tsx scripts/probe-sources.ts"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.39.5",
+    "@next/eslint-plugin-next": "^15.5.26",
+    "@playwright/test": "^1.63.0",
+    "@types/node": "^20.19.43",
+    "concurrently": "^9.2.4",
+    "dotenv": "^16.6.1",
+    "eslint": "^9.39.5",
+    "eslint-plugin-react-hooks": "^5.2.0",
+    "globals": "^16.0.0",
+    "prettier": "^3.9.9",
+    "prisma": "^6.19.3",
+    "tsx": "^4.23.15",
+    "typescript": "^5.9.3",
+    "typescript-eslint": "^8.70.1",
+    "vitest": "^3.2.7"
+  }
+}

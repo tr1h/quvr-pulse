@@ -1,0 +1,983 @@
+{
+  "chainId": 1399811149,
+  "chainName": "Solana",
+  "chainFamily": "solana",
+  "address": "9Jfxfiw84f2jBpLqACHchd727LLLHgJa6uhSmnrbpump",
+  "checksumAddress": "9Jfxfiw84f2jBpLqACHchd727LLLHgJa6uhSmnrbpump",
+  "generatedAt": "2026-09-24T16:24:58.840Z",
+  "mode": "full",
+  "blockNumber": {
+    "value": null,
+    "source": "solana rpc (keyed)",
+    "fetchedAt": "2026-09-24T16:25:03.412Z",
+    "isStale": false,
+    "confidence": "low",
+    "error": "slot not tracked"
+  },
+  "token": {
+    "name": {
+      "value": "Tha Rocco Bull Bottom",
+      "source": "dexscreener",
+      "fetchedAt": "2026-09-24T16:25:03.412Z",
+      "isStale": false,
+      "confidence": "medium"
+    },
+    "symbol": {
+      "value": "ROCCO",
+      "source": "dexscreener",
+      "fetchedAt": "2026-09-24T16:25:03.412Z",
+      "isStale": false,
+      "confidence": "medium"
+    },
+    "decimals": {
+      "value": 6,
+      "source": "solana rpc (keyed)",
+      "fetchedAt": "2026-09-24T16:25:03.412Z",
+      "isStale": false,
+      "confidence": "high"
+    },
+    "totalSupply": {
+      "value": 1000000000,
+      "source": "solana rpc (keyed)",
+      "fetchedAt": "2026-09-24T16:25:03.412Z",
+      "isStale": false,
+      "confidence": "high"
+    },
+    "imageUrl": null
+  },
+  "links": {
+    "blockscout": "https://solscan.io/token/9Jfxfiw84f2jBpLqACHchd727LLLHgJa6uhSmnrbpump",
+    "dexscreener": "https://dexscreener.com/solana/9Jfxfiw84f2jBpLqACHchd727LLLHgJa6uhSmnrbpump",
+    "fomo": null,
+    "external": {
+      "value": [],
+      "source": "dexscreener",
+      "fetchedAt": "2026-09-24T16:25:03.412Z",
+      "isStale": false,
+      "confidence": "medium"
+    }
+  },
+  "market": {
+    "priceUsd": {
+      "value": 0.000007288,
+      "source": "dexscreener",
+      "fetchedAt": "2026-09-24T16:25:03.412Z",
+      "isStale": false,
+      "confidence": "high",
+      "sourceUrl": "https://dexscreener.com/solana/fvpnfaaeusjbzr2ss5xvh68si6rw3hfmgmnkrxnu9qcw"
+    },
+    "priceNative": {
+      "value": 6.216e-8,
+      "source": "dexscreener",
+      "fetchedAt": "2026-09-24T16:25:03.412Z",
+      "isStale": false,
+      "confidence": "high",
+      "sourceUrl": "https://dexscreener.com/solana/fvpnfaaeusjbzr2ss5xvh68si6rw3hfmgmnkrxnu9qcw"
+    },
+    "marketCapUsd": {
+      "value": 7288.58,
+      "source": "dexscreener",
+      "fetchedAt": "2026-09-24T16:25:03.412Z",
+      "isStale": false,
+      "confidence": "high",
+      "sourceUrl": "https://dexscreener.com/solana/fvpnfaaeusjbzr2ss5xvh68si6rw3hfmgmnkrxnu9qcw"
+    },
+    "fdvUsd": {
+      "value": 7288.58,
+      "source": "dexscreener",
+      "fetchedAt": "2026-09-24T16:25:03.412Z",
+      "isStale": false,
+      "confidence": "high",
+      "sourceUrl": "https://dexscreener.com/solana/fvpnfaaeusjbzr2ss5xvh68si6rw3hfmgmnkrxnu9qcw"
+    },
+    "liquidityUsd": {
+      "value": null,
+      "source": "dexscreener",
+      "fetchedAt": "2026-09-24T16:25:03.412Z",
+      "isStale": false,
+      "confidence": "high",
+      "sourceUrl": "https://dexscreener.com/solana/9Jfxfiw84f2jBpLqACHchd727LLLHgJa6uhSmnrbpump"
+    },
+    "volume": {
+      "value": { "m5": 57.63, "h1": 2145.7, "h6": 2145.7, "h24": 2145.7 },
+      "source": "dexscreener",
+      "fetchedAt": "2026-09-24T16:25:03.412Z",
+      "isStale": false,
+      "confidence": "high"
+    },
+    "txns": {
+      "value": {
+        "m5": { "buys": 5, "sells": 0 },
+        "h1": { "buys": 33, "sells": 25 },
+        "h6": { "buys": 33, "sells": 25 },
+        "h24": { "buys": 33, "sells": 25 }
+      },
+      "source": "dexscreener",
+      "fetchedAt": "2026-09-24T16:25:03.412Z",
+      "isStale": false,
+      "confidence": "high"
+    },
+    "priceChange": {
+      "value": { "m5": 2.3, "h1": 27.1, "h6": 27.1, "h24": 27.1 },
+      "source": "dexscreener",
+      "fetchedAt": "2026-09-24T16:25:03.412Z",
+      "isStale": false,
+      "confidence": "high"
+    },
+    "pairs": {
+      "value": [
+        {
+          "pairAddress": "FVPNfaAeusJBzR2sS5XVH68Si6rW3hfMGMnKRxnU9qcW",
+          "dexId": "pumpfun",
+          "labels": [],
+          "kind": "v2",
+          "baseToken": {
+            "address": "9Jfxfiw84f2jBpLqACHchd727LLLHgJa6uhSmnrbpump",
+            "symbol": "ROCCO",
+            "name": "Tha Rocco Bull Bottom"
+          },
+          "quoteToken": {
+            "address": "So11111111111111111111111111111111111111112",
+            "symbol": "SOL",
+            "name": "Wrapped SOL"
+          },
+          "priceUsd": 0.000007288,
+          "priceNative": 6.216e-8,
+          "liquidityUsd": null,
+          "liquidityBase": null,
+          "liquidityQuote": null,
+          "volume": { "m5": 57.63, "h1": 2145.7, "h6": 2145.7, "h24": 2145.7 },
+          "txns": {
+            "m5": { "buys": 5, "sells": 0 },
+            "h1": { "buys": 33, "sells": 25 },
+            "h6": { "buys": 33, "sells": 25 },
+            "h24": { "buys": 33, "sells": 25 }
+          },
+          "priceChange": { "m5": 2.3, "h1": 27.1, "h6": 27.1, "h24": 27.1 },
+          "fdvUsd": 7288.58,
+          "marketCapUsd": 7288.58,
+          "pairCreatedAt": "2026-09-24T16:06:18.000Z",
+          "url": "https://dexscreener.com/solana/fvpnfaaeusjbzr2ss5xvh68si6rw3hfmgmnkrxnu9qcw"
+        }
+      ],
+      "source": "dexscreener",
+      "fetchedAt": "2026-09-24T16:25:03.412Z",
+      "isStale": false,
+      "confidence": "high"
+    }
+  },
+  "liquidity": {
+    "mainPair": {
+      "value": {
+        "pairAddress": "FVPNfaAeusJBzR2sS5XVH68Si6rW3hfMGMnKRxnU9qcW",
+        "dexId": "pumpfun",
+        "labels": [],
+        "kind": "v2",
+        "baseToken": {
+          "address": "9Jfxfiw84f2jBpLqACHchd727LLLHgJa6uhSmnrbpump",
+          "symbol": "ROCCO",
+          "name": "Tha Rocco Bull Bottom"
+        },
+        "quoteToken": {
+          "address": "So11111111111111111111111111111111111111112",
+          "symbol": "SOL",
+          "name": "Wrapped SOL"
+        },
+        "priceUsd": 0.000007288,
+        "priceNative": 6.216e-8,
+        "liquidityUsd": null,
+        "liquidityBase": null,
+        "liquidityQuote": null,
+        "volume": { "m5": 57.63, "h1": 2145.7, "h6": 2145.7, "h24": 2145.7 },
+        "txns": {
+          "m5": { "buys": 5, "sells": 0 },
+          "h1": { "buys": 33, "sells": 25 },
+          "h6": { "buys": 33, "sells": 25 },
+          "h24": { "buys": 33, "sells": 25 }
+        },
+        "priceChange": { "m5": 2.3, "h1": 27.1, "h6": 27.1, "h24": 27.1 },
+        "fdvUsd": 7288.58,
+        "marketCapUsd": 7288.58,
+        "pairCreatedAt": "2026-09-24T16:06:18.000Z",
+        "url": "https://dexscreener.com/solana/fvpnfaaeusjbzr2ss5xvh68si6rw3hfmgmnkrxnu9qcw"
+      },
+      "source": "dexscreener",
+      "fetchedAt": "2026-09-24T16:25:03.412Z",
+      "isStale": false,
+      "confidence": "high",
+      "sourceUrl": "https://dexscreener.com/solana/fvpnfaaeusjbzr2ss5xvh68si6rw3hfmgmnkrxnu9qcw"
+    },
+    "mainPoolShare": {
+      "value": null,
+      "source": "dexscreener",
+      "fetchedAt": "2026-09-24T16:25:03.412Z",
+      "isStale": false,
+      "confidence": "high"
+    },
+    "liquidityToMcap": {
+      "value": null,
+      "source": "dexscreener",
+      "fetchedAt": "2026-09-24T16:25:03.412Z",
+      "isStale": false,
+      "confidence": "low",
+      "error": "liquidity or market cap missing"
+    },
+    "poolAgeHours": {
+      "value": 0.3113444444444444,
+      "source": "dexscreener",
+      "fetchedAt": "2026-09-24T16:25:03.412Z",
+      "isStale": false,
+      "confidence": "high"
+    },
+    "netFlowNative": {
+      "value": null,
+      "source": "solana rpc (keyed)",
+      "fetchedAt": "2026-09-24T16:25:03.412Z",
+      "isStale": false,
+      "confidence": "low",
+      "error": "on-chain net flow is not implemented for Solana yet"
+    },
+    "priceImpact": {
+      "value": null,
+      "source": "dexscreener reserves",
+      "fetchedAt": "2026-09-24T16:25:03.412Z",
+      "isStale": false,
+      "confidence": "low",
+      "error": "no constant-product reserves"
+    },
+    "liquidityTrend": {
+      "value": null,
+      "source": "quvr snapshots",
+      "fetchedAt": "2026-09-24T16:25:03.412Z",
+      "isStale": false,
+      "confidence": "low",
+      "error": "not enough snapshot history yet"
+    }
+  },
+  "contract": {
+    "value": {
+      "isContract": true,
+      "codeHash": null,
+      "bytecodeSize": null,
+      "verified": true,
+      "contractName": "SPL Token-2022",
+      "compiler": null,
+      "proxy": { "isProxy": false, "kind": null, "implementation": null, "admin": null },
+      "owner": {
+        "address": null,
+        "kind": "renounced",
+        "isTimelock": null,
+        "timelockDelaySec": null,
+        "isMultisig": null
+      },
+      "capabilities": [],
+      "feeReadings": [],
+      "bytecodeMatchesSource": null,
+      "selectorsFound": 2
+    },
+    "source": "solana rpc (keyed) mint account",
+    "fetchedAt": "2026-09-24T16:25:03.412Z",
+    "isStale": false,
+    "confidence": "high",
+    "sourceUrl": "https://solscan.io/token/9Jfxfiw84f2jBpLqACHchd727LLLHgJa6uhSmnrbpump"
+  },
+  "creation": {
+    "value": {
+      "deployer": "Hic6fMrt11UYhhJ8UZkWeSuPo2RxhR1HA3dCtTPfcxGT",
+      "factory": null,
+      "txHash": "2FaPP5Wx5pgQMeSEpEAmBk9kqXA4QdZPrvW3nSK5N5DFs4A8xVoiMW8yNTfCdoQhWXrQa1hd8tFzbPVBsAf8r6vz",
+      "blockNumber": 450077999,
+      "timestamp": "2026-09-24T16:06:18.000Z",
+      "initialMintTo": null,
+      "method": "rpc-mint-log"
+    },
+    "source": "pump.fun bonding curve",
+    "fetchedAt": "2026-09-24T16:25:03.412Z",
+    "isStale": false,
+    "confidence": "high",
+    "sourceUrl": "https://solscan.io/tx/2FaPP5Wx5pgQMeSEpEAmBk9kqXA4QdZPrvW3nSK5N5DFs4A8xVoiMW8yNTfCdoQhWXrQa1hd8tFzbPVBsAf8r6vz"
+  },
+  "simulation": {
+    "value": null,
+    "source": "solana rpc (keyed)",
+    "fetchedAt": "2026-09-24T16:25:03.412Z",
+    "isStale": false,
+    "confidence": "low",
+    "error": "Sell simulation unavailable (Solana)"
+  },
+  "distribution": {
+    "holdersCount": {
+      "value": null,
+      "source": "solana rpc (keyed)",
+      "fetchedAt": "2026-09-24T16:25:03.412Z",
+      "isStale": false,
+      "confidence": "low",
+      "error": "holder count needs an indexer (not available from standard RPC)"
+    },
+    "top": {
+      "value": [
+        {
+          "address": "Hic6fMrt11UYhhJ8UZkWeSuPo2RxhR1HA3dCtTPfcxGT",
+          "balance": 267218642.129818,
+          "share": 0.7560864072992763,
+          "shareOfTotal": 0.267218642129818,
+          "isContract": false,
+          "tags": ["deployer"]
+        },
+        {
+          "address": "qKrvpqMSn6Dj45caH4mTYWymFAYLtmzUxPmdxMifSKR",
+          "balance": 19337142.245997,
+          "share": 0.054713811475428774,
+          "shareOfTotal": 0.019337142245997002,
+          "isContract": false,
+          "tags": []
+        },
+        {
+          "address": "HkSaPToNrabk5swFQi7KhLhnnpDJYVB1QoyHNQbcyZXf",
+          "balance": 13899278.875893,
+          "share": 0.03932755493989539,
+          "shareOfTotal": 0.013899278875893,
+          "isContract": false,
+          "tags": []
+        },
+        {
+          "address": "FgJ5uhhm5mwNupc7VPAWensJfRL6HRQeeQCbycnqMAeQ",
+          "balance": 10350759.057549,
+          "share": 0.02928713418445061,
+          "shareOfTotal": 0.010350759057549,
+          "isContract": false,
+          "tags": []
+        },
+        {
+          "address": "DCAuZiZ6HZZqkyLcfufFHREphXayHfcq1LFvu2wtr17d",
+          "balance": 7766942.309333,
+          "share": 0.021976309210909817,
+          "shareOfTotal": 0.007766942309333,
+          "isContract": false,
+          "tags": []
+        },
+        {
+          "address": "omegoMAe1AMY5MFKQQr3JwXVy8F4eCvmBAfcpo8XAfq",
+          "balance": 6711101.151431,
+          "share": 0.018988841190737016,
+          "shareOfTotal": 0.006711101151431,
+          "isContract": false,
+          "tags": []
+        },
+        {
+          "address": "2aP7hJA7LxJ8vBy5jmRLBTLi6tjMfCrvnSX3dZ8QTdUd",
+          "balance": 6129443.147106,
+          "share": 0.017343058893282994,
+          "shareOfTotal": 0.006129443147106,
+          "isContract": false,
+          "tags": []
+        },
+        {
+          "address": "3oo1kWWyo9CRrHXSnq6oRKDsqcJmfeJGVHy8sCZwau2v",
+          "balance": 5185229.839799,
+          "share": 0.014671438225069684,
+          "shareOfTotal": 0.005185229839799,
+          "isContract": false,
+          "tags": []
+        },
+        {
+          "address": "9qgCzhzGSbrjcCgyRbhVENgJu1GSjCTEndcnhjN9sjDJ",
+          "balance": 3479283.310796,
+          "share": 0.009844518322034148,
+          "shareOfTotal": 0.003479283310796,
+          "isContract": false,
+          "tags": []
+        },
+        {
+          "address": "9RaD53aMMjuaiMcEbZxWCCjPv6FMje936VZBjw2hoY34",
+          "balance": 3453202.875219,
+          "share": 0.009770724582648875,
+          "shareOfTotal": 0.003453202875219,
+          "isContract": false,
+          "tags": ["possibly-related"]
+        },
+        {
+          "address": "9wLN6VkQjhTsGUWGyY3JxqfyEPQAj1yXYXT37oaCzyCx",
+          "balance": 2762562.300175,
+          "share": 0.007816579666118534,
+          "shareOfTotal": 0.002762562300175,
+          "isContract": false,
+          "tags": ["possibly-related"]
+        },
+        {
+          "address": "437hBbLoNhuoWaDe9Lgfdnsssx6eTmJ8QdsuhAuiPBiY",
+          "balance": 2757757.480457,
+          "share": 0.007802984585890043,
+          "shareOfTotal": 0.002757757480457,
+          "isContract": false,
+          "tags": []
+        },
+        {
+          "address": "BBeft5QozTYdDPagToAjvcvCwBXXjzehxqs24BtCLMRD",
+          "balance": 2071921.725131,
+          "share": 0.005862434749588193,
+          "shareOfTotal": 0.002071921725131,
+          "isContract": false,
+          "tags": []
+        },
+        {
+          "address": "GncCCcJTkEH5JBgNRCxJKib3nn8rwNc92jF6aHfxAjmU",
+          "balance": 1136156.557304,
+          "share": 0.00321471781569853,
+          "shareOfTotal": 0.001136156557304,
+          "isContract": false,
+          "tags": []
+        },
+        {
+          "address": "HpFehxUwfZ2RExGdF3vziprYa38rTF9M5NQd6ie8qQWP",
+          "balance": 580754.808063,
+          "share": 0.0016432267331738556,
+          "shareOfTotal": 0.0005807548080629999,
+          "isContract": false,
+          "tags": []
+        },
+        {
+          "address": "AE1KsZ87FfVofcbQMh9Gh3hRuoAV9B6x8NQAoC9Mt1Wy",
+          "balance": 269001.735867,
+          "share": 0.0007611316127044024,
+          "shareOfTotal": 0.00026900173586700003,
+          "isContract": false,
+          "tags": []
+        },
+        {
+          "address": "9h4ZhNbYMYdBwkMEMgphcn4jz3ugmksjXUJvwPQvG3d4",
+          "balance": 185740.701427,
+          "share": 0.0005255472391891076,
+          "shareOfTotal": 0.000185740701427,
+          "isContract": false,
+          "tags": []
+        },
+        {
+          "address": "GRttmmYqzsp27tXBU2v7hq3VbZbGbfhJoZiABLZKBVDV",
+          "balance": 128273.868691,
+          "share": 0.0003629467156780188,
+          "shareOfTotal": 0.000128273868691,
+          "isContract": false,
+          "tags": []
+        },
+        {
+          "address": "SCAMGLV3QU7adj3RzNPLJ5pZ91G5j2HoHdNYbjJgojy",
+          "balance": 223.56089,
+          "share": 6.325582256742823e-7,
+          "shareOfTotal": 2.2356089e-7,
+          "isContract": false,
+          "tags": []
+        }
+      ],
+      "source": "solana rpc (keyed)",
+      "fetchedAt": "2026-09-24T16:25:03.412Z",
+      "isStale": false,
+      "confidence": "medium",
+      "approximate": true
+    },
+    "concentration": {
+      "value": {
+        "top1": 0.7560864072992763,
+        "top5": 0.901391217109961,
+        "top10": 0.9720097983237337,
+        "top20": 0.9999999999999999
+      },
+      "source": "solana rpc (keyed)",
+      "fetchedAt": "2026-09-24T16:25:03.412Z",
+      "isStale": false,
+      "confidence": "medium",
+      "approximate": true
+    },
+    "excluded": {
+      "value": [
+        {
+          "address": "FVPNfaAeusJBzR2sS5XVH68Si6rW3hfMGMnKRxnU9qcW",
+          "balance": 646576582.319054,
+          "shareOfTotal": 0.646576582319054,
+          "reason": "dex-pool",
+          "label": {
+            "ru": "Хранилище программы (пул, bonding curve или другая программа)",
+            "en": "Program vault (pool, bonding curve or other program)"
+          }
+        }
+      ],
+      "source": "solana rpc (keyed)",
+      "fetchedAt": "2026-09-24T16:25:03.412Z",
+      "isStale": false,
+      "confidence": "high",
+      "approximate": true
+    },
+    "deployerShare": {
+      "value": 0.267218642,
+      "source": "solana rpc (keyed)",
+      "fetchedAt": "2026-09-24T16:25:03.412Z",
+      "isStale": false,
+      "confidence": "high"
+    },
+    "relatedShare": {
+      "value": 0,
+      "source": "helius history (heuristic)",
+      "fetchedAt": "2026-09-24T16:25:03.412Z",
+      "isStale": false,
+      "confidence": "low"
+    },
+    "clusters": {
+      "value": [
+        {
+          "id": "c1",
+          "wallets": [
+            "9RaD53aMMjuaiMcEbZxWCCjPv6FMje936VZBjw2hoY34",
+            "9wLN6VkQjhTsGUWGyY3JxqfyEPQAj1yXYXT37oaCzyCx"
+          ],
+          "signals": [
+            { "signal": "same-first-buy-block", "evidence": "first buy in block 450080220" }
+          ],
+          "combinedShareOfTotal": 0.006215,
+          "linkedToDeployer": false,
+          "confidence": "low"
+        }
+      ],
+      "source": "helius history (heuristic)",
+      "fetchedAt": "2026-09-24T16:25:03.412Z",
+      "isStale": false,
+      "confidence": "low"
+    },
+    "holderGrowth": {
+      "value": null,
+      "source": "solana rpc (keyed)",
+      "fetchedAt": "2026-09-24T16:25:03.412Z",
+      "isStale": false,
+      "confidence": "low",
+      "error": "holder history is not implemented for Solana yet"
+    },
+    "newWallets24h": {
+      "value": null,
+      "source": "solana rpc (keyed)",
+      "fetchedAt": "2026-09-24T16:25:03.412Z",
+      "isStale": false,
+      "confidence": "low",
+      "error": "holder history is not implemented for Solana yet"
+    },
+    "freshWalletShare": {
+      "value": null,
+      "source": "solana rpc (keyed)",
+      "fetchedAt": "2026-09-24T16:25:03.412Z",
+      "isStale": false,
+      "confidence": "low",
+      "error": "wallet freshness is not implemented for Solana yet"
+    },
+    "massTransfers": {
+      "value": null,
+      "source": "solana rpc (keyed)",
+      "fetchedAt": "2026-09-24T16:25:03.412Z",
+      "isStale": false,
+      "confidence": "low",
+      "error": "transfer history is not implemented for Solana yet"
+    }
+  },
+  "deployerActions": {
+    "value": [
+      {
+        "kind": "transfer-in",
+        "amount": 1620017.334363,
+        "counterparty": "FVPNfaAeusJBzR2sS5XVH68Si6rW3hfMGMnKRxnU9qcW",
+        "txHash": "8NVNZYMobRbzpr3fAB65ALWC6zrNcCF8vbMFnd18m9ub1e2D1VbP3Zpzt5V1JGRkW3n2y3pK76TzPDEu5WjdkRj",
+        "blockNumber": 0,
+        "timestamp": "2026-09-24T16:21:29.000Z"
+      },
+      {
+        "kind": "create",
+        "amount": 265598624.795455,
+        "counterparty": "FVPNfaAeusJBzR2sS5XVH68Si6rW3hfMGMnKRxnU9qcW",
+        "txHash": "2FaPP5Wx5pgQMeSEpEAmBk9kqXA4QdZPrvW3nSK5N5DFs4A8xVoiMW8yNTfCdoQhWXrQa1hd8tFzbPVBsAf8r6vz",
+        "blockNumber": 0,
+        "timestamp": "2026-09-24T16:06:18.000Z"
+      }
+    ],
+    "source": "helius enhanced transactions",
+    "fetchedAt": "2026-09-24T16:25:03.412Z",
+    "isStale": false,
+    "confidence": "medium"
+  },
+  "social": {
+    "available": false,
+    "reason": {
+      "ru": "Социальный источник не ответил: rate-limited: [fomoapi] FomoAPI call not allowed: daily credit cap reached or no shared credit counter (Redis)",
+      "en": "Social provider failed: rate-limited: [fomoapi] FomoAPI call not allowed: daily credit cap reached or no shared credit counter (Redis)"
+    },
+    "theses": {
+      "value": null,
+      "source": "fomoapi",
+      "fetchedAt": "2026-09-24T16:25:03.412Z",
+      "isStale": false,
+      "confidence": "low",
+      "error": "Social provider failed: rate-limited: [fomoapi] FomoAPI call not allowed: daily credit cap reached or no shared credit counter (Redis)"
+    },
+    "authors": {
+      "value": null,
+      "source": "fomoapi",
+      "fetchedAt": "2026-09-24T16:25:03.412Z",
+      "isStale": false,
+      "confidence": "low",
+      "error": "Social provider failed: rate-limited: [fomoapi] FomoAPI call not allowed: daily credit cap reached or no shared credit counter (Redis)"
+    },
+    "trendingRank": {
+      "value": null,
+      "source": "fomoapi",
+      "fetchedAt": "2026-09-24T16:25:03.412Z",
+      "isStale": false,
+      "confidence": "low",
+      "error": "Social provider failed: rate-limited: [fomoapi] FomoAPI call not allowed: daily credit cap reached or no shared credit counter (Redis)"
+    },
+    "trackedHolders": {
+      "value": null,
+      "source": "fomoapi",
+      "fetchedAt": "2026-09-24T16:25:03.412Z",
+      "isStale": false,
+      "confidence": "low",
+      "error": "Social provider failed: rate-limited: [fomoapi] FomoAPI call not allowed: daily credit cap reached or no shared credit counter (Redis)"
+    }
+  },
+  "history": {
+    "price": {
+      "value": null,
+      "source": "solana rpc (keyed)",
+      "fetchedAt": "2026-09-24T16:25:03.412Z",
+      "isStale": false,
+      "confidence": "low",
+      "error": "on-chain price history is not implemented for Solana yet"
+    },
+    "liquidity": {
+      "value": [],
+      "source": "quvr snapshots (dexscreener)",
+      "fetchedAt": "2026-09-24T16:25:03.412Z",
+      "isStale": false,
+      "confidence": "medium"
+    }
+  },
+  "timeline": [
+    {
+      "at": "2026-09-24T16:06:18.000Z",
+      "blockNumber": 450077999,
+      "kind": "created",
+      "title": { "ru": "Создание токена", "en": "Token created" },
+      "txHash": "2FaPP5Wx5pgQMeSEpEAmBk9kqXA4QdZPrvW3nSK5N5DFs4A8xVoiMW8yNTfCdoQhWXrQa1hd8tFzbPVBsAf8r6vz",
+      "source": "pump.fun bonding curve"
+    },
+    {
+      "at": "2026-09-24T16:06:18.000Z",
+      "blockNumber": null,
+      "kind": "first-pool",
+      "title": { "ru": "Первый пул (pumpfun)", "en": "First pool (pumpfun)" },
+      "source": "dexscreener"
+    }
+  ],
+  "findings": [
+    {
+      "code": "distribution.concentrated",
+      "category": "distribution",
+      "severity": "high",
+      "title": { "ru": "Высокая концентрация держателей", "en": "High holder concentration" },
+      "explanation": {
+        "ru": "Десять крупнейших кошельков (без пулов и burn) держат 97.2% обращения. Их продажа может резко обвалить цену.",
+        "en": "The ten largest wallets (pools and burn excluded) hold 97.2% of circulating supply. Their selling can crash the price."
+      },
+      "evidence": [
+        "Hic6fMrt11UYhhJ8UZkWeSuPo2RxhR1HA3dCtTPfcxGT: 75.6%",
+        "qKrvpqMSn6Dj45caH4mTYWymFAYLtmzUxPmdxMifSKR: 5.5%",
+        "HkSaPToNrabk5swFQi7KhLhnnpDJYVB1QoyHNQbcyZXf: 3.9%"
+      ],
+      "source": "solana rpc (keyed)",
+      "confidence": "low"
+    },
+    {
+      "code": "distribution.deployer-share",
+      "category": "distribution",
+      "severity": "high",
+      "title": { "ru": "Deployer держит крупную долю", "en": "Deployer holds a large share" },
+      "explanation": {
+        "ru": "Кошелёк создателя держит 26.7% предложения.",
+        "en": "The creator wallet holds 26.7% of supply."
+      },
+      "evidence": ["deployer share 26.7%"],
+      "source": "solana rpc (keyed)",
+      "confidence": "high"
+    },
+    {
+      "code": "liquidity.new-pool",
+      "category": "liquidity",
+      "severity": "low",
+      "title": { "ru": "Очень новый пул", "en": "Very new pool" },
+      "explanation": {
+        "ru": "Пулу меньше 6 часов: история торгов мала, риски выше.",
+        "en": "The pool is under 6 hours old: little trading history, higher risk."
+      },
+      "evidence": ["age 0.3h"],
+      "source": "dexscreener",
+      "confidence": "high"
+    },
+    {
+      "code": "solana.authorities-revoked",
+      "category": "contract",
+      "severity": "info",
+      "title": {
+        "ru": "Mint и freeze authority отозваны",
+        "en": "Mint and freeze authorities revoked"
+      },
+      "explanation": {
+        "ru": "Новые токены выпустить нельзя, кошельки заморозить нельзя, опасных расширений Token-2022 нет. Это не гарантия безопасности: риски ликвидности и держателей проверяются отдельно.",
+        "en": "No new tokens can be minted, wallets cannot be frozen, and no risky Token-2022 extensions exist. This is not a safety guarantee: liquidity and holder risks are checked separately."
+      },
+      "evidence": ["mintAuthority = null", "freezeAuthority = null"],
+      "source": "solana rpc mint",
+      "confidence": "high"
+    },
+    {
+      "code": "data.solana-scope",
+      "category": "data",
+      "severity": "info",
+      "title": {
+        "ru": "Solana: часть проверок пока недоступна",
+        "en": "Solana: some checks are not available yet"
+      },
+      "explanation": {
+        "ru": "Для Solana пока нет симуляции продажи, истории цены по блокчейну, числа держателей и роста держателей. Эти показатели отмечены «Нет данных». Связанные кошельки проверяются для 12 крупнейших держателей.",
+        "en": "For Solana there is no sell simulation, on-chain price history, holder count or holder growth yet. They are shown as “No data”. Related wallets are checked for the 12 largest holders."
+      },
+      "evidence": ["top holders: largest token accounts"],
+      "source": "quvr",
+      "confidence": "high"
+    }
+  ],
+  "scores": {
+    "contractSafety": {
+      "key": "contractSafety",
+      "value": 100,
+      "confidence": "medium",
+      "level": "low",
+      "reasons": [
+        {
+          "text": {
+            "ru": "Стандартная программа SPL Token: открытый проверенный код",
+            "en": "Standard SPL Token program: open, audited code"
+          },
+          "impact": "positive"
+        },
+        {
+          "text": {
+            "ru": "Опасных полномочий и расширений в mint не найдено",
+            "en": "No risky authorities or extensions in the mint"
+          },
+          "impact": "positive"
+        },
+        {
+          "text": { "ru": "Все полномочия mint отозваны", "en": "All mint authorities revoked" },
+          "impact": "positive"
+        },
+        {
+          "text": { "ru": "Симуляция продажи недоступна", "en": "Sell simulation unavailable" },
+          "impact": "neutral"
+        }
+      ],
+      "components": [
+        {
+          "id": "verified",
+          "label": { "ru": "Стандартная программа токена", "en": "Standard token program" },
+          "points": 10,
+          "max": 10
+        },
+        {
+          "id": "privileges",
+          "label": { "ru": "Нет опасных полномочий", "en": "No risky authorities" },
+          "points": 30,
+          "max": 30
+        },
+        {
+          "id": "ownership",
+          "label": { "ru": "Полномочия отозваны", "en": "Authorities revoked" },
+          "points": 20,
+          "max": 20
+        },
+        {
+          "id": "simulation",
+          "label": { "ru": "Симуляция продажи", "en": "Sell simulation" },
+          "points": null,
+          "max": 20
+        },
+        {
+          "id": "upgrade",
+          "label": { "ru": "Неизменяемость программы", "en": "Program immutability" },
+          "points": 10,
+          "max": 10
+        },
+        {
+          "id": "restrictions",
+          "label": { "ru": "Нет ограничений переводов", "en": "No transfer restrictions" },
+          "points": 10,
+          "max": 10
+        }
+      ],
+      "penalties": [],
+      "coverage": 0.8,
+      "updatedAt": "2026-09-24T16:24:58.840Z"
+    },
+    "liquidityHealth": {
+      "key": "liquidityHealth",
+      "value": null,
+      "confidence": "low",
+      "level": "insufficient",
+      "reasons": [
+        {
+          "text": { "ru": "Пулу меньше суток", "en": "Pool is less than a day old" },
+          "impact": "negative"
+        }
+      ],
+      "components": [
+        {
+          "id": "ratio",
+          "label": { "ru": "Ликвидность / капитализация", "en": "Liquidity / market cap" },
+          "points": null,
+          "max": 30
+        },
+        {
+          "id": "depth",
+          "label": { "ru": "Глубина и price impact", "en": "Depth & price impact" },
+          "points": null,
+          "max": 30
+        },
+        {
+          "id": "age",
+          "label": { "ru": "Возраст и стабильность", "en": "Age & stability" },
+          "points": 3.155672222222222,
+          "max": 15
+        },
+        {
+          "id": "pools",
+          "label": { "ru": "Распределение по пулам", "en": "Distribution across pools" },
+          "points": null,
+          "max": 10
+        },
+        {
+          "id": "trend",
+          "label": { "ru": "Динамика ликвидности", "en": "Liquidity trend" },
+          "points": null,
+          "max": 15,
+          "note": { "ru": "Нужна история снимков", "en": "Needs snapshot history" }
+        }
+      ],
+      "penalties": [],
+      "coverage": 0.15,
+      "updatedAt": "2026-09-24T16:24:58.840Z"
+    },
+    "distributionHealth": {
+      "key": "distributionHealth",
+      "value": 27,
+      "confidence": "low",
+      "level": "high",
+      "reasons": [
+        {
+          "text": {
+            "ru": "Top-10 держат 97.2% обращения",
+            "en": "Top-10 hold 97.2% of circulating supply"
+          },
+          "impact": "negative"
+        },
+        {
+          "text": { "ru": "Deployer держит 26.7%", "en": "Deployer holds 26.7%" },
+          "impact": "negative"
+        }
+      ],
+      "components": [
+        {
+          "id": "top",
+          "label": { "ru": "Концентрация top-держателей", "en": "Top holder concentration" },
+          "points": 0,
+          "max": 35
+        },
+        {
+          "id": "deployer",
+          "label": { "ru": "Доля deployer", "en": "Deployer share" },
+          "points": 0,
+          "max": 20
+        },
+        {
+          "id": "clusters",
+          "label": { "ru": "Связанные кластеры", "en": "Related clusters" },
+          "points": 20,
+          "max": 20
+        },
+        {
+          "id": "growth",
+          "label": { "ru": "Рост числа держателей", "en": "Holder growth" },
+          "points": null,
+          "max": 10
+        },
+        {
+          "id": "mass",
+          "label": { "ru": "Нет массовых переводов", "en": "No suspicious mass transfers" },
+          "points": null,
+          "max": 15
+        }
+      ],
+      "penalties": [],
+      "coverage": 0.75,
+      "updatedAt": "2026-09-24T16:24:58.840Z"
+    },
+    "socialMomentum": {
+      "key": "socialMomentum",
+      "value": null,
+      "confidence": "low",
+      "level": "insufficient",
+      "reasons": [
+        {
+          "text": {
+            "ru": "Социальные данные недоступны (режим onchain-only)",
+            "en": "Social data unavailable (onchain-only mode)"
+          },
+          "impact": "neutral"
+        }
+      ],
+      "components": [
+        {
+          "id": "social",
+          "label": { "ru": "Социальные данные", "en": "Social data" },
+          "points": null,
+          "max": 100
+        }
+      ],
+      "penalties": [],
+      "coverage": 0,
+      "updatedAt": "2026-09-24T16:24:58.840Z"
+    }
+  },
+  "sources": [
+    {
+      "source": "solana-rpc",
+      "status": "ok",
+      "circuit": "closed",
+      "successRate": 1,
+      "p50LatencyMs": 68,
+      "lastSuccessAt": "2026-09-24T16:25:03.405Z",
+      "lastError": null,
+      "note": "keyed RPC"
+    },
+    {
+      "source": "dexscreener",
+      "status": "ok",
+      "circuit": "closed",
+      "successRate": 1,
+      "p50LatencyMs": 75,
+      "lastSuccessAt": "2026-09-24T16:24:58.916Z",
+      "lastError": null
+    },
+    {
+      "source": "fomoapi",
+      "status": "ok",
+      "circuit": "closed",
+      "successRate": null,
+      "p50LatencyMs": null,
+      "lastSuccessAt": null,
+      "lastError": null
+    }
+  ]
+}

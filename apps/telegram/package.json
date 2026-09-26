@@ -1,0 +1,18 @@
+{
+  "name": "@quvr/telegram",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "node --env-file=../../.env --import tsx src/index.ts",
+    "start": "node --env-file=../../.env --import tsx src/index.ts",
+    "dev:watch": "tsx watch --env-file=../../.env src/index.ts"
+  },
+  "dependencies": {
+    "@quvr/scoring": "0.1.0",
+    "@quvr/services": "0.1.0",
+    "@quvr/shared": "0.1.0",
+    "grammy": "^1.46.0",
+    "tsx": "^4.23.15"
+  }
+}

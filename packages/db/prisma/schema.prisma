@@ -1,0 +1,414 @@
+// QUVR Pulse schema. All EVM addresses are stored lowercase (checksummed only for display).
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Severity {
+  info
+  low
+  medium
+  high
+  critical
+}
+
+enum OwnerType {
+  web
+  telegram
+}
+
+model Token {
+  address       String    @id // lowercase
+  chainId       Int       @default(4663)
+  name          String?
+  symbol        String?
+  decimals      Int?
+  totalSupply   Decimal?  @db.Decimal(78, 0)
+  imageUrl      String?
+  links         Json?
+  firstSeenAt   DateTime  @default(now())
+  lastScannedAt DateTime?
+  lastReport    Json? // last good TokenReport (served stale when providers fail)
+  socialLinksAt DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  contract       TokenContract?
+  pairs          TradingPair[]
+  marketSnaps    MarketSnapshot[]
+  holderSnaps    HolderSnapshot[]
+  liquiditySnaps LiquiditySnapshot[]
+  findings       RiskFinding[]
+  scores         ScoreSnapshot[]
+  theses         Thesis[]
+  watchlists     Watchlist[]
+  alertEvents    AlertEvent[]
+  balances       WalletTokenBalance[]
+  baseline       TokenBaseline?
+
+  @@index([chainId, lastScannedAt])
+}
+
+model TokenContract {
+  tokenAddress   String    @id
+  token          Token     @relation(fields: [tokenAddress], references: [address], onDelete: Cascade)
+  codeHash       String
+  bytecodeSize   Int
+  deployer       String?
+  factory        String?
+  creationTx     String?
+  creationBlock  Int?
+  createdAtChain DateTime?
+  verified       Boolean?
+  isProxy        Boolean   @default(false)
+  implementation String?
+  owner          String?
+  analysis       Json // ContractAnalysis
+  analyzedAt     DateTime  @default(now())
+
+  @@index([codeHash])
+  @@index([deployer])
+}
+
+model TradingPair {
+  pairAddress   String    @id // v2/v3 pool address or v4 poolId (lowercase)
+  tokenAddress  String
+  token         Token     @relation(fields: [tokenAddress], references: [address], onDelete: Cascade)
+  dexId         String
+  kind          String // v2 | v3 | v4 | unknown
+  quoteAddress  String
+  quoteSymbol   String?
+  pairCreatedAt DateTime?
+  hooks         String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  marketSnaps    MarketSnapshot[]
+  liquiditySnaps LiquiditySnapshot[]
+
+  @@index([tokenAddress])
+}
+
+model MarketSnapshot {
+  id           BigInt       @id @default(autoincrement())
+  tokenAddress String
+  token        Token        @relation(fields: [tokenAddress], references: [address], onDelete: Cascade)
+  pairAddress  String?
+  pair         TradingPair? @relation(fields: [pairAddress], references: [pairAddress], onDelete: SetNull)
+  timestamp    DateTime     @default(now())
+  priceUsd     Float?
+  priceNative  Float?
+  marketCapUsd Float?
+  fdvUsd       Float?
+  liquidityUsd Float?
+  volumeH24    Float?
+  volumeH1     Float?
+  buysH24      Int?
+  sellsH24     Int?
+  source       String
+  confidence   String
+
+  @@index([tokenAddress, timestamp])
+  @@index([pairAddress, timestamp])
+}
+
+model LiquiditySnapshot {
+  id              BigInt       @id @default(autoincrement())
+  tokenAddress    String
+  token           Token        @relation(fields: [tokenAddress], references: [address], onDelete: Cascade)
+  pairAddress     String?
+  pair            TradingPair? @relation(fields: [pairAddress], references: [pairAddress], onDelete: SetNull)
+  timestamp       DateTime     @default(now())
+  liquidityUsd    Float?
+  activeLiquidity String? // raw uint128 for concentrated pools
+  sqrtPriceX96    String?
+  impacts         Json?
+  source          String
+
+  @@index([tokenAddress, timestamp])
+  @@index([pairAddress, timestamp])
+}
+
+model HolderSnapshot {
+  id            BigInt   @id @default(autoincrement())
+  tokenAddress  String
+  token         Token    @relation(fields: [tokenAddress], references: [address], onDelete: Cascade)
+  timestamp     DateTime @default(now())
+  blockNumber   Int
+  holdersCount  Int?
+  top1          Float?
+  top5          Float?
+  top10         Float?
+  top20         Float?
+  deployerShare Float?
+  relatedShare  Float?
+  topHolders    Json
+  excluded      Json
+  clusters      Json
+  complete      Boolean  @default(true)
+  source        String
+
+  @@index([tokenAddress, timestamp])
+}
+
+model Wallet {
+  address     String   @id
+  isContract  Boolean?
+  nonce       Int?
+  firstSeenAt DateTime @default(now())
+  label       String?
+  updatedAt   DateTime @updatedAt
+
+  relationsFrom WalletRelation[]     @relation("from")
+  relationsTo   WalletRelation[]     @relation("to")
+  balances      WalletTokenBalance[]
+  traderLinks   TraderWallet[]
+}
+
+model WalletRelation {
+  id           BigInt   @id @default(autoincrement())
+  fromAddress  String
+  toAddress    String
+  from         Wallet   @relation("from", fields: [fromAddress], references: [address], onDelete: Cascade)
+  to           Wallet   @relation("to", fields: [toAddress], references: [address], onDelete: Cascade)
+  signal       String // RelationSignal
+  evidence     String
+  tokenAddress String?
+  confidence   String
+  timestamp    DateTime @default(now())
+
+  @@unique([fromAddress, toAddress, signal, tokenAddress])
+  @@index([toAddress])
+}
+
+model WalletTokenBalance {
+  walletAddress String
+  tokenAddress  String
+  wallet        Wallet   @relation(fields: [walletAddress], references: [address], onDelete: Cascade)
+  token         Token    @relation(fields: [tokenAddress], references: [address], onDelete: Cascade)
+  balance       Decimal  @db.Decimal(78, 0)
+  blockNumber   Int
+  timestamp     DateTime @default(now())
+
+  @@id([walletAddress, tokenAddress])
+  @@index([tokenAddress, balance])
+  @@index([walletAddress, timestamp])
+}
+
+model Trader {
+  id              String    @id @default(cuid())
+  handle          String    @unique
+  externalUserId  String?
+  displayName     String?
+  verified        Boolean?
+  stats           Json? // AuthorStats
+  qualityScore    Float?
+  qualityTier     String?
+  statsAt         DateTime?
+  walletCheckedAt DateTime? // last paid wallet lookup (negative cache when no EVM wallet)
+  source          String    @default("fomoapi")
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  wallets TraderWallet[]
+  theses  Thesis[]
+  signals TradeSignal[]
+}
+
+model TraderWallet {
+  traderId      String
+  walletAddress String
+  trader        Trader  @relation(fields: [traderId], references: [id], onDelete: Cascade)
+  wallet        Wallet  @relation(fields: [walletAddress], references: [address], onDelete: Cascade)
+  confirmed     Boolean @default(false) // reported by provider, not inferred
+  source        String
+
+  @@id([traderId, walletAddress])
+}
+
+model Thesis {
+  id                   String   @id // provider id
+  traderId             String
+  trader               Trader   @relation(fields: [traderId], references: [id], onDelete: Cascade)
+  tokenAddress         String
+  token                Token    @relation(fields: [tokenAddress], references: [address], onDelete: Cascade)
+  text                 String
+  tradeId              String? // provider position id (thesis backed by a real trade)
+  publishedAt          DateTime
+  likes                Int?
+  isDev                Boolean?
+  tradeUsd             Float?
+  // Entry price captured at publication time (never recomputed from later data).
+  priceAtPublishNative Float?
+  priceAtPublishUsd    Float?
+  outcome15m           Float?
+  outcome1h            Float?
+  outcome6h            Float?
+  outcome24h           Float?
+  source               String
+  fetchedAt            DateTime @default(now())
+
+  @@index([tokenAddress, publishedAt])
+  @@index([traderId, publishedAt])
+}
+
+model TradeSignal {
+  id           String   @id // provider event id
+  traderId     String?
+  trader       Trader?  @relation(fields: [traderId], references: [id], onDelete: SetNull)
+  tokenAddress String?
+  kind         String // buy | sell | thesis | other
+  tradeUsd     Float?
+  timestamp    DateTime
+  source       String
+  raw          Json?
+
+  @@index([traderId, timestamp])
+  @@index([tokenAddress, timestamp])
+}
+
+model RiskFinding {
+  id           BigInt   @id @default(autoincrement())
+  tokenAddress String
+  token        Token    @relation(fields: [tokenAddress], references: [address], onDelete: Cascade)
+  code         String
+  category     String
+  severity     Severity
+  title        Json
+  explanation  Json
+  evidence     Json
+  source       String
+  confidence   String
+  active       Boolean  @default(true)
+  firstSeenAt  DateTime @default(now())
+  lastSeenAt   DateTime @default(now())
+
+  @@unique([tokenAddress, code])
+  @@index([severity, lastSeenAt])
+}
+
+model ScoreSnapshot {
+  id                 BigInt   @id @default(autoincrement())
+  tokenAddress       String
+  token              Token    @relation(fields: [tokenAddress], references: [address], onDelete: Cascade)
+  timestamp          DateTime @default(now())
+  contractSafety     Int?
+  liquidityHealth    Int?
+  distributionHealth Int?
+  socialMomentum     Int?
+  details            Json
+
+  @@index([tokenAddress, timestamp])
+}
+
+model Watchlist {
+  id           String    @id @default(cuid())
+  ownerType    OwnerType
+  ownerId      String // anonymous web id (cookie) or telegram chat id
+  tokenAddress String
+  token        Token     @relation(fields: [tokenAddress], references: [address], onDelete: Cascade)
+  createdAt    DateTime  @default(now())
+
+  rules AlertRule[]
+
+  @@unique([ownerType, ownerId, tokenAddress])
+  @@index([tokenAddress])
+}
+
+model AlertRule {
+  id          String    @id @default(cuid())
+  watchlistId String
+  watchlist   Watchlist @relation(fields: [watchlistId], references: [id], onDelete: Cascade)
+  kind        String // deployer-sell | liquidity-drop | large-sell | privilege-tx | quality-thesis | quality-cluster | author-exit | sell-sim-failed
+  threshold   Float?
+  enabled     Boolean   @default(true)
+  createdAt   DateTime  @default(now())
+
+  events AlertEvent[]
+
+  @@unique([watchlistId, kind])
+}
+
+model AlertEvent {
+  id            String     @id @default(cuid())
+  ruleId        String?
+  rule          AlertRule? @relation(fields: [ruleId], references: [id], onDelete: SetNull)
+  tokenAddress  String
+  token         Token      @relation(fields: [tokenAddress], references: [address], onDelete: Cascade)
+  kind          String
+  severity      Severity
+  title         Json
+  body          Json
+  dedupeKey     String
+  createdAt     DateTime   @default(now())
+  deliveredAt   DateTime?
+  deliveryError String?
+
+  @@unique([ruleId, dedupeKey])
+  @@index([tokenAddress, createdAt])
+  @@index([createdAt])
+}
+
+model DataSourceStatus {
+  source        String    @id
+  status        String // ok | degraded | down | disabled
+  successRate   Float?
+  p50LatencyMs  Int?
+  p95LatencyMs  Int?
+  calls         Int       @default(0)
+  failures      Int       @default(0)
+  lastSuccessAt DateTime?
+  lastErrorAt   DateTime?
+  lastError     String?
+  note          String?
+  reporter      String // web | worker | telegram
+  updatedAt     DateTime  @updatedAt
+}
+
+model IngestionCursor {
+  key         String   @id // e.g. "transfers:<token>", "v4-initialize"
+  blockNumber Int
+  meta        Json?
+  updatedAt   DateTime @updatedAt
+}
+
+/// The state of a token when QUVR Pulse first checked it: the input side of outcome statistics.
+model TokenBaseline {
+  tokenAddress String         @id
+  token        Token          @relation(fields: [tokenAddress], references: [address], onDelete: Cascade)
+  chain        String // "robinhood" | "base" | "solana"
+  capturedAt   DateTime
+  /// Reconstructed later from the earliest stored snapshot (features may come from a later report).
+  backfilled   Boolean        @default(false)
+  priceUsd     Float?
+  liquidityUsd Float?
+  marketCapUsd Float?
+  poolAgeHours Float?
+  features     Json
+  outcomes     TokenOutcome[]
+
+  @@index([capturedAt])
+}
+
+/// What happened to a token 1h / 24h / 7d after its baseline: alive, dead or no market left.
+model TokenOutcome {
+  id             BigInt        @id @default(autoincrement())
+  tokenAddress   String
+  baseline       TokenBaseline @relation(fields: [tokenAddress], references: [tokenAddress], onDelete: Cascade)
+  horizon        String // "1h" | "24h" | "7d"
+  observedAt     DateTime      @default(now())
+  /// Minutes between the ideal observation time and the actual one (to filter late samples).
+  delayMinutes   Int
+  status         String // "alive" | "dead" | "no_market"
+  priceUsd       Float?
+  liquidityUsd   Float?
+  priceRatio     Float?
+  liquidityRatio Float?
+
+  @@unique([tokenAddress, horizon])
+}

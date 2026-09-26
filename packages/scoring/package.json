@@ -1,0 +1,13 @@
+{
+  "name": "@quvr/scoring",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@quvr/shared": "0.1.0",
+    "viem": "^2.56.8"
+  }
+}
