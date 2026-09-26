@@ -1,11 +1,18 @@
 import { logger } from "@quvr/shared";
 import { checkOperation, withOperationTimeout } from "@quvr/providers";
 import { redisReady, getRedis } from "./redis";
+import { decodeCache, encodeCache } from "./cache-codec";
 
 type Entry<T> = { value: T; storedAt: number };
 
-const MEMORY = new Map<string, Entry<unknown> & { expiresAt: number }>();
+const MEMORY = new Map<string, { raw: string; bytes: number; expiresAt: number }>();
 const MEMORY_MAX = 500;
+const MEMORY_MAX_BYTES = 32 * 1024 * 1024;
+let memoryBytes = 0;
+function evictMemory(key: string) {
+  memoryBytes -= MEMORY.get(key)?.bytes ?? 0;
+  MEMORY.delete(key);
+}
 /**
  * Loads in progress, deduplicated per key. The deadline cancels provider work and prevents
  * late completions from overwriting a replacement result.
@@ -13,17 +20,11 @@ const MEMORY_MAX = 500;
 const INFLIGHT = new Map<string, { p: Promise<unknown>; at: number }>();
 const INFLIGHT_MAX_MS = 3 * 60_000;
 
-const replacer = (_k: string, v: unknown) => (typeof v === "bigint" ? { __big: v.toString() } : v);
-const reviver = (_k: string, v: unknown) =>
-  v && typeof v === "object" && "__big" in (v as object)
-    ? BigInt((v as { __big: string }).__big)
-    : v;
-
 async function readEntry<T>(key: string): Promise<Entry<T> | null> {
   if (redisReady()) {
     try {
       const raw = await getRedis()!.get(`quvr:${key}`);
-      if (raw) return JSON.parse(raw, reviver) as Entry<T>;
+      if (raw) return await decodeCache<Entry<T>>(raw);
       return null;
     } catch (e) {
       logger.debug("cache read failed", { key, error: (e as Error).message });
@@ -32,26 +33,33 @@ async function readEntry<T>(key: string): Promise<Entry<T> | null> {
   const m = MEMORY.get(key);
   if (!m) return null;
   if (m.expiresAt < Date.now()) {
-    MEMORY.delete(key);
+    evictMemory(key);
     return null;
   }
-  return m as Entry<T>;
+  return decodeCache<Entry<T>>(m.raw);
 }
 
 async function writeEntry<T>(key: string, value: T, keepSeconds: number) {
   checkOperation();
   const entry: Entry<T> = { value, storedAt: Date.now() };
+  const raw = await encodeCache(entry);
+  checkOperation();
   if (redisReady()) {
     try {
-      await getRedis()!.set(`quvr:${key}`, JSON.stringify(entry, replacer), "EX", keepSeconds);
+      await getRedis()!.set(`quvr:${key}`, raw, "EX", keepSeconds);
       return;
     } catch (e) {
       logger.debug("cache write failed", { key, error: (e as Error).message });
     }
   }
   checkOperation();
-  if (MEMORY.size >= MEMORY_MAX) MEMORY.delete(MEMORY.keys().next().value!);
-  MEMORY.set(key, { ...entry, expiresAt: Date.now() + keepSeconds * 1000 });
+  const bytes = Buffer.byteLength(raw);
+  evictMemory(key);
+  if (bytes > MEMORY_MAX_BYTES) return;
+  while (MEMORY.size >= MEMORY_MAX || memoryBytes + bytes > MEMORY_MAX_BYTES)
+    evictMemory(MEMORY.keys().next().value!);
+  MEMORY.set(key, { raw, bytes, expiresAt: Date.now() + keepSeconds * 1000 });
+  memoryBytes += bytes;
 }
 
 export async function cacheGet<T>(key: string): Promise<{ value: T; ageMs: number } | null> {
