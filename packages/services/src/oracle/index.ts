@@ -12,6 +12,8 @@ import {
   createWalletClient,
   defineChain,
   encodeDeployData,
+  encodeFunctionData,
+  TransactionReceiptNotFoundError,
   formatEther,
   getAddress,
   http,
@@ -24,7 +26,16 @@ import {
   type Hex,
 } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
-import { cacheGet, cacheSet, tryLock, unlock } from "../cache";
+import { cacheGet, cacheSet } from "../cache";
+import { acquireLease } from "../lease";
+import {
+  dailyLimit,
+  pendingPublication,
+  reservePublication,
+  deliverPublication,
+  type Publication,
+  type PublishedLabel,
+} from "./journal";
 import { getRedis } from "../redis";
 import { safeDb } from "../persistence";
 import { ORACLE_ABI, ORACLE_BYTECODE } from "./artifact";
@@ -39,10 +50,10 @@ const log = logger.child({ scope: "oracle" });
 
 /** Only tokens with real liquidity are published (gas is spent where labels matter). */
 const MIN_LIQUIDITY_USD = 5_000;
-/** An unchanged label is re-published at most daily, so freshness checks keep passing. */
+/** Unchanged labels are republished every three days. */
 const REPUBLISH_AFTER_MS = 3 * 86_400_000;
 /** Hard cap on labels per UTC day (gas budget); override with ORACLE_DAILY_LIMIT. */
-const DAILY_LIMIT = Number(process.env.ORACLE_DAILY_LIMIT) || 300;
+const DAILY_LIMIT = dailyLimit();
 const MIN_BALANCE = parseEther("0.0003");
 /** Per-contract keys: a redeployed oracle gets every label again. */
 const logKey = (oracle: string) => `oracle:log:v1:${oracle.toLowerCase()}`;
@@ -173,13 +184,75 @@ export function reportId(chainId: number, address: string, generatedAt: string):
 export async function publishOracleLabels(limit = 20): Promise<number> {
   const info = oracleInfo();
   if (!info.enabled || !info.address) return 0;
-  if (!(await tryLock("oracle-publish", 5 * 60_000))) return 0;
+  const redis = getRedis();
+  if (!redis || redis.status !== "ready") {
+    log.warn("oracle skipped", { reason: "redis_unavailable" });
+    return 0;
+  }
+  const release = await acquireLease("oracle-publish", 5 * 60_000);
+  if (!release) return 0;
   try {
+    const pending = await pendingPublication();
+    if (pending) {
+      if (pending.chainId !== network().id)
+        throw new Error("pending publication belongs to another network");
+      return await resumePublication(pending);
+    }
+    const day = new Date().toISOString().slice(0, 10);
+    const raw = await redis.get(`quvr:oracle:day:${day}`);
+    const legacySpent = raw ? Number(JSON.parse(raw).value) : 0;
+    if (!Number.isSafeInteger(legacySpent) || legacySpent < 0)
+      throw new Error("invalid oracle budget counter");
+    const budget = await getDb().oracleDayBudget.findUnique({ where: { day } });
+    const remaining = Math.max(0, DAILY_LIMIT - (budget?.used ?? legacySpent));
+    if (!remaining) {
+      log.info("oracle skipped", {
+        reason: "daily_limit",
+        used: budget?.used ?? legacySpent,
+        limit: DAILY_LIMIT,
+      });
+      return 0;
+    }
+    limit = Math.min(Math.max(0, Math.floor(limit)), remaining);
+    if (!Number.isFinite(limit) || !limit) return 0;
+    const recent = await getDb().oraclePublication.findMany({
+      where: {
+        oracle: info.address.toLowerCase(),
+        chainId: network().id,
+        status: "confirmed",
+        completedAt: { gte: new Date(Date.now() - REPUBLISH_AFTER_MS) },
+      },
+      orderBy: { completedAt: "asc" },
+      select: { labels: true, completedAt: true },
+    });
+    const recorded = new Map<string, { sig: string; at: number }>();
+    for (const batch of recent)
+      for (const item of batch.labels as unknown as PublishedLabel[])
+        recorded.set(item.token, { sig: item.sig, at: batch.completedAt!.getTime() });
     const rows = await safeDb(
       "oracle-candidates",
       () =>
         getDb().$queryRaw<Array<{ address: string; report: TokenReport }>>`
-          SELECT address, "lastReport" AS report
+          SELECT address,
+            -- Only what the label needs: full reports are large and 200 of them exhausted the
+            -- worker's heap (OOM restarts every 30 minutes, no labels written).
+            jsonb_build_object(
+              'generatedAt', "lastReport"::jsonb->'generatedAt',
+              'token', jsonb_build_object('symbol', "lastReport"::jsonb->'token'->'symbol'),
+              'scores', jsonb_build_object(
+                'contractSafety', jsonb_build_object(
+                  'level', "lastReport"::jsonb->'scores'->'contractSafety'->'level',
+                  'value', "lastReport"::jsonb->'scores'->'contractSafety'->'value'),
+                'liquidityHealth', jsonb_build_object(
+                  'level', "lastReport"::jsonb->'scores'->'liquidityHealth'->'level',
+                  'value', "lastReport"::jsonb->'scores'->'liquidityHealth'->'value'),
+                'distributionHealth', jsonb_build_object(
+                  'level', "lastReport"::jsonb->'scores'->'distributionHealth'->'level',
+                  'value', "lastReport"::jsonb->'scores'->'distributionHealth'->'value')),
+              'findings', COALESCE((
+                SELECT jsonb_agg(jsonb_build_object('code', f->>'code', 'severity', f->>'severity'))
+                FROM jsonb_array_elements("lastReport"::jsonb->'findings') f), '[]'::jsonb)
+            ) AS report
           FROM "Token"
           WHERE "chainId" = ${ROBINHOOD_MAINNET.id}
             AND "lastScannedAt" > now() - interval '3 hours'
@@ -194,16 +267,17 @@ export async function publishOracleLabels(limit = 20): Promise<number> {
       if (!c.report?.scores) continue;
       const label = oracleLabel(c.report);
       const sig = oracleSignature(label);
-      const last = await cacheGet<{ sig: string; at: number }>(lastKey(info.address, c.address));
-      if (last && last.value.sig === sig && Date.now() - last.value.at < REPUBLISH_AFTER_MS)
-        continue;
+      const last =
+        recorded.get(c.address) ??
+        (await cacheGet<{ sig: string; at: number }>(lastKey(info.address, c.address)))?.value;
+      if (last && last.sig === sig && Date.now() - last.at < REPUBLISH_AFTER_MS) continue;
       due.push({ c, label, sig });
       if (due.length >= limit) break;
     }
-    const dayKey = `oracle:day:${new Date().toISOString().slice(0, 10)}`;
-    const spent = (await cacheGet<number>(dayKey))?.value ?? 0;
-    due.splice(Math.max(0, DAILY_LIMIT - spent));
-    if (!due.length) return 0;
+    if (!due.length) {
+      log.info("oracle skipped", { reason: "no_due_labels" });
+      return 0;
+    }
 
     const { account, pub, wallet, net } = clients();
     const balance = await pub.getBalance({ address: account.address });
@@ -211,8 +285,7 @@ export async function publishOracleLabels(limit = 20): Promise<number> {
       log.warn("publisher balance too low, skipping", { balance: formatEther(balance) });
       return 0;
     }
-    const tx = await wallet.writeContract({
-      address: info.address as Address,
+    const data = encodeFunctionData({
       abi: ORACLE_ABI,
       functionName: "publishBatch",
       args: [
@@ -223,39 +296,103 @@ export async function publishOracleLabels(limit = 20): Promise<number> {
         })),
       ],
     });
-    const receipt = await pub.waitForTransactionReceipt({ hash: tx, timeout: 120_000 });
-    if (receipt.status !== "success") throw new Error(`publishBatch reverted: ${tx}`);
-
-    const now = Date.now();
-    for (const d of due)
-      await cacheSet(lastKey(info.address!, d.c.address), { sig: d.sig, at: now, tx }, 7 * 86_400);
-    await bumpStats(
-      info.address!,
-      due.length,
-      due.map((d) => d.c.address),
+    const request = await wallet.prepareTransactionRequest({
+      account,
+      to: info.address as Address,
+      data,
+    });
+    const rawTransaction = await wallet.signTransaction(request);
+    const hash = keccak256(rawTransaction);
+    const entry = await reservePublication(
+      {
+        hash,
+        rawTransaction,
+        chainId: net.id,
+        oracle: info.address.toLowerCase(),
+        day,
+        labelCount: due.length,
+        labels: due.map((d) => ({
+          token: d.c.address,
+          symbol: d.c.report.token?.symbol?.value ?? null,
+          sig: d.sig,
+          label: d.label,
+        })),
+      },
+      DAILY_LIMIT,
+      legacySpent,
     );
-    const entries: OracleLogEntry[] = due.map((d) => ({
-      token: d.c.address,
-      symbol: d.c.report.token?.symbol?.value ?? null,
-      level: d.label.level,
-      flags: d.label.flags,
-      tx,
-      at: new Date(now).toISOString(),
-    }));
-    const prev = (await cacheGet<OracleLogEntry[]>(logKey(info.address!)))?.value ?? [];
-    await cacheSet(logKey(info.address!), [...entries, ...prev].slice(0, 100), 30 * 86_400);
-    await cacheSet(dayKey, spent + due.length, 2 * 86_400);
-    log.info("labels published", { count: due.length, tx, gasUsed: receipt.gasUsed.toString() });
-    return due.length;
+    if (!entry) {
+      log.info("oracle skipped", { reason: "budget_or_reservation_changed" });
+      return 0;
+    }
+    if (entry.chainId !== net.id) throw new Error("pending publication belongs to another network");
+    return await resumePublication(entry);
   } finally {
-    await unlock("oracle-publish");
+    await release();
   }
+}
+
+async function resumePublication(entry: Publication): Promise<number> {
+  const { pub, wallet } = clients();
+  return deliverPublication(entry, {
+    receipt: async (hash) => {
+      try {
+        return await pub.getTransactionReceipt({ hash });
+      } catch (e) {
+        if (e instanceof TransactionReceiptNotFoundError) return null;
+        throw e;
+      }
+    },
+    send: (raw) => wallet.sendRawTransaction({ serializedTransaction: raw }),
+    wait: (hash) => pub.waitForTransactionReceipt({ hash, timeout: 120_000 }),
+    finalize: async (batch, status) => {
+      const now = new Date();
+      await getDb().oraclePublication.update({
+        where: { hash: batch.hash },
+        data: {
+          status: status === "success" ? "confirmed" : "reverted",
+          completedAt: now,
+        },
+      });
+      if (status === "success") {
+        for (const item of batch.labels as PublishedLabel[])
+          await cacheSet(
+            lastKey(batch.oracle, item.token),
+            { sig: item.sig, at: now.getTime(), tx: batch.hash },
+            7 * 86_400,
+          );
+      }
+      log.info("oracle transaction reconciled", {
+        tx: batch.hash,
+        status,
+        count: batch.labelCount,
+      });
+    },
+  });
 }
 
 /** Latest publications (newest first) for the Oracle page. */
 export async function oracleLog(): Promise<OracleLogEntry[]> {
   const address = oracleAddress();
-  return address ? ((await cacheGet<OracleLogEntry[]>(logKey(address)))?.value ?? []) : [];
+  if (!address) return [];
+  const legacy = (await cacheGet<OracleLogEntry[]>(logKey(address)))?.value ?? [];
+  const batches = await getDb().oraclePublication.findMany({
+    where: { oracle: address.toLowerCase(), chainId: network().id, status: "confirmed" },
+    orderBy: { completedAt: "desc" },
+    take: 100,
+    select: { labels: true, hash: true, completedAt: true },
+  });
+  const entries = batches.flatMap((batch) =>
+    (batch.labels as unknown as PublishedLabel[]).map((item) => ({
+      token: item.token,
+      symbol: item.symbol,
+      level: item.label.level,
+      flags: item.label.flags,
+      tx: batch.hash,
+      at: batch.completedAt!.toISOString(),
+    })),
+  );
+  return [...entries, ...legacy].sort((a, b) => b.at.localeCompare(a.at)).slice(0, 100);
 }
 
 /** Publisher balance (ETH, as a string) for the admin status; null when disabled/unreachable. */
@@ -343,18 +480,6 @@ const statsKeys = (oracle: string) => ({
   tokens: `quvr:oracle:tokens:${oracle.toLowerCase()}`,
 });
 
-async function bumpStats(oracle: string, labels: number, tokens: string[]) {
-  const r = getRedis();
-  if (!r) return;
-  const k = statsKeys(oracle);
-  try {
-    await r.incrby(k.labels, labels);
-    if (tokens.length) await r.sadd(k.tokens, ...tokens.map((t) => t.toLowerCase()));
-  } catch {
-    /* stats are best-effort */
-  }
-}
-
 /** Totals for the Oracle page (null when Redis is unavailable). */
 export async function oracleStats(): Promise<{ labels: number | null; tokens: number | null }> {
   const address = oracleAddress();
@@ -363,7 +488,19 @@ export async function oracleStats(): Promise<{ labels: number | null; tokens: nu
   const k = statsKeys(address);
   try {
     const [labels, tokens] = await Promise.all([r.get(k.labels), r.scard(k.tokens)]);
-    return { labels: labels === null ? null : Number(labels), tokens };
+    const [totals] = await getDb().$queryRaw<Array<{ labels: number; tokens: string[] }>>`
+      SELECT COALESCE((SELECT sum("labelCount")::int FROM "OraclePublication"
+        WHERE oracle = ${address.toLowerCase()} AND "chainId" = ${network().id} AND status = 'confirmed'), 0) AS labels,
+        ARRAY(SELECT DISTINCT lower(item->>'token') FROM "OraclePublication",
+          LATERAL jsonb_array_elements(labels) item
+          WHERE oracle = ${address.toLowerCase()} AND "chainId" = ${network().id} AND status = 'confirmed') AS tokens
+    `;
+    const uniqueTokens = new Set(await r.smembers(k.tokens));
+    for (const token of totals?.tokens ?? []) uniqueTokens.add(token);
+    return {
+      labels: Number(labels ?? 0) + (totals?.labels ?? 0),
+      tokens: Math.max(tokens, uniqueTokens.size),
+    };
   } catch {
     return { labels: null, tokens: null };
   }
@@ -393,7 +530,11 @@ export async function seedOracleStats(
     for (const l of logs) if (l.args.token) tokens.add(l.args.token.toLowerCase());
   }
   const k = statsKeys(address);
-  await r.set(k.labels, String(labels));
+  const journaled = await getDb().oraclePublication.aggregate({
+    where: { oracle: address.toLowerCase(), chainId: network().id, status: "confirmed" },
+    _sum: { labelCount: true },
+  });
+  await r.set(k.labels, String(Math.max(0, labels - (journaled._sum.labelCount ?? 0))));
   await r.del(k.tokens);
   if (tokens.size) await r.sadd(k.tokens, ...tokens);
   return { labels, tokens: tokens.size };

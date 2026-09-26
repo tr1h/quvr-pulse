@@ -412,3 +412,25 @@ model TokenOutcome {
 
   @@unique([tokenAddress, horizon])
 }
+
+/// Reserved labels include pending/reverted transactions; UTC budget shared across contracts.
+model OracleDayBudget {
+  day String @id
+  used Int
+}
+
+/// Signed transaction is persisted before broadcasting. A restart resumes the same hash/nonce.
+model OraclePublication {
+  hash String @id
+  chainId Int
+  oracle String
+  rawTransaction String
+  labels Json
+  labelCount Int
+  day String
+  status String @default("pending")
+  createdAt DateTime @default(now())
+  completedAt DateTime?
+
+  @@index([status, createdAt])
+}

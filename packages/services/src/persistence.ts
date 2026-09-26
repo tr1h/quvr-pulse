@@ -1,5 +1,5 @@
 import { getDb, isDbConfigured, toJson, type Prisma } from "@quvr/db";
-import { metricsSnapshot } from "@quvr/providers";
+import { checkOperation, metricsSnapshot } from "@quvr/providers";
 import { captureBaseline } from "./outcomes";
 import { logger, type LiquidityPoint, type RiskFinding, type TokenReport } from "@quvr/shared";
 
@@ -26,26 +26,37 @@ export function dbAvailable() {
 const SEVERITIES = ["info", "low", "medium", "high", "critical"] as const;
 
 export async function persistReport(report: TokenReport, meta: { codeHash: string | null }) {
+  checkOperation();
   const db = getDb();
   const a = report.address;
   await safeDb(
     "persistReport",
     async () => {
       const t = report.token;
-      await db.token.upsert({
-        where: { address: a },
-        create: {
+      checkOperation();
+      await db.token.createMany({
+        skipDuplicates: true,
+        data: [
+          {
+            address: a,
+            chainId: report.chainId,
+            name: t.name.value,
+            symbol: t.symbol.value,
+            decimals: t.decimals.value,
+            imageUrl: t.imageUrl,
+            links: toJson(report.links.external.value ?? []),
+            lastScannedAt: new Date(report.generatedAt),
+            lastReport: toJson(report),
+          },
+        ],
+      });
+      checkOperation();
+      const accepted = await db.token.updateMany({
+        where: {
           address: a,
-          chainId: report.chainId,
-          name: t.name.value,
-          symbol: t.symbol.value,
-          decimals: t.decimals.value,
-          imageUrl: t.imageUrl,
-          links: toJson(report.links.external.value ?? []),
-          lastScannedAt: new Date(report.generatedAt),
-          lastReport: toJson(report),
+          OR: [{ lastScannedAt: null }, { lastScannedAt: { lte: new Date(report.generatedAt) } }],
         },
-        update: {
+        data: {
           chainId: report.chainId,
           name: t.name.value ?? undefined,
           symbol: t.symbol.value ?? undefined,
@@ -58,6 +69,7 @@ export async function persistReport(report: TokenReport, meta: { codeHash: strin
           lastReport: toJson(report),
         },
       });
+      if (!accepted.count) return;
 
       await captureBaseline(report);
 

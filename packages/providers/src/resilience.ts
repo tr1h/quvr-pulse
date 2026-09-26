@@ -1,5 +1,6 @@
 import { logger } from "@quvr/shared";
 import { ProviderError } from "./errors";
+import { checkOperation, operationSignal } from "./operation";
 
 // ---------------------------------------------------------------- metrics
 
@@ -167,6 +168,7 @@ export class RateLimiter {
   async acquire(maxWaitMs = 5_000): Promise<boolean> {
     const deadline = this.now() + maxWaitMs;
     for (;;) {
+      checkOperation();
       this.refill();
       if (this.tokens >= 1) {
         this.tokens -= 1;
@@ -209,7 +211,22 @@ export function limiterFor(source: string): RateLimiter {
 
 // ---------------------------------------------------------------- retry wrapper
 
-export const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+export async function sleep(ms: number): Promise<void> {
+  const signal = operationSignal();
+  signal?.throwIfAborted();
+  await new Promise<void>((resolve, reject) => {
+    const done = () => {
+      signal?.removeEventListener("abort", abort);
+      resolve();
+    };
+    const timer = setTimeout(done, ms);
+    const abort = () => {
+      clearTimeout(timer);
+      reject(signal?.reason);
+    };
+    signal?.addEventListener("abort", abort, { once: true });
+  });
+}
 
 /**
  * Sources whose 429 means "this whole IP is over quota" (GeckoTerminal's free API): instead of
@@ -238,6 +255,7 @@ export async function withResilience<T>(
   fn: (signal: AbortSignal) => Promise<T>,
   opts: ResilienceOptions = {},
 ): Promise<T> {
+  checkOperation();
   const { timeoutMs = 10_000, retries = 2, baseDelayMs = 300, maxDelayMs = 4_000 } = opts;
   const breaker = breakerFor(source);
   const pause = COOLDOWN.get(source);
@@ -253,6 +271,7 @@ export async function withResilience<T>(
   let lastErr: unknown;
   let maxAttempts = retries;
   for (let attempt = 0; attempt <= maxAttempts; attempt++) {
+    checkOperation();
     if (!(await limiterFor(opts.limiterKey ?? source).acquire(opts.limiterKey ? 60_000 : 5_000))) {
       lastErr = new ProviderError(
         source,
@@ -266,12 +285,17 @@ export async function withResilience<T>(
     const timer = setTimeout(() => controller.abort(), timeoutMs);
     const started = performance.now();
     try {
-      const result = await fn(controller.signal);
+      const parent = operationSignal();
+      const result = await fn(
+        parent ? AbortSignal.any([parent, controller.signal]) : controller.signal,
+      );
+      checkOperation();
       recordSuccess(source, performance.now() - started);
       breaker.onSuccess();
       COOLDOWN.delete(source);
       return result;
     } catch (e) {
+      checkOperation();
       const err =
         controller.signal.aborted && !(e instanceof ProviderError)
           ? new ProviderError(source, "timeout", `timed out after ${timeoutMs}ms`)

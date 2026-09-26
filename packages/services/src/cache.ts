@@ -1,11 +1,17 @@
 import { logger } from "@quvr/shared";
+import { checkOperation, withOperationTimeout } from "@quvr/providers";
 import { redisReady, getRedis } from "./redis";
 
 type Entry<T> = { value: T; storedAt: number };
 
 const MEMORY = new Map<string, Entry<unknown> & { expiresAt: number }>();
 const MEMORY_MAX = 500;
-const INFLIGHT = new Map<string, Promise<unknown>>();
+/**
+ * Loads in progress, deduplicated per key. The deadline cancels provider work and prevents
+ * late completions from overwriting a replacement result.
+ */
+const INFLIGHT = new Map<string, { p: Promise<unknown>; at: number }>();
+const INFLIGHT_MAX_MS = 3 * 60_000;
 
 const replacer = (_k: string, v: unknown) => (typeof v === "bigint" ? { __big: v.toString() } : v);
 const reviver = (_k: string, v: unknown) =>
@@ -33,6 +39,7 @@ async function readEntry<T>(key: string): Promise<Entry<T> | null> {
 }
 
 async function writeEntry<T>(key: string, value: T, keepSeconds: number) {
+  checkOperation();
   const entry: Entry<T> = { value, storedAt: Date.now() };
   if (redisReady()) {
     try {
@@ -42,6 +49,7 @@ async function writeEntry<T>(key: string, value: T, keepSeconds: number) {
       logger.debug("cache write failed", { key, error: (e as Error).message });
     }
   }
+  checkOperation();
   if (MEMORY.size >= MEMORY_MAX) MEMORY.delete(MEMORY.keys().next().value!);
   MEMORY.set(key, { ...entry, expiresAt: Date.now() + keepSeconds * 1000 });
 }
@@ -72,15 +80,17 @@ export async function swr<T>(
 ): Promise<SwrResult<T>> {
   const hit = await readEntry<T>(key);
   const run = () => {
-    const existing = INFLIGHT.get(key) as Promise<T> | undefined;
-    if (existing) return existing;
-    const p = loader()
-      .then(async (v) => {
-        await writeEntry(key, v, opts.keepSeconds);
-        return v;
-      })
-      .finally(() => INFLIGHT.delete(key));
-    INFLIGHT.set(key, p);
+    const existing = INFLIGHT.get(key);
+    if (existing) return existing.p as Promise<T>;
+    const p: Promise<T> = withOperationTimeout(INFLIGHT_MAX_MS, async () => {
+      const v = await loader();
+      checkOperation();
+      await writeEntry(key, v, opts.keepSeconds);
+      return v;
+    }).finally(() => {
+      if (INFLIGHT.get(key)?.p === p) INFLIGHT.delete(key);
+    });
+    INFLIGHT.set(key, { p, at: Date.now() });
     return p;
   };
 

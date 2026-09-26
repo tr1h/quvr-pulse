@@ -43,59 +43,74 @@ export async function radarRows(limit = 100): Promise<RadarRow[]> {
   return safeDb(
     "radarRows",
     async () => {
-      const tokens = await getDb().token.findMany({
-        where: { lastReport: { not: undefined }, lastScannedAt: { not: null } },
-        orderBy: { lastScannedAt: "desc" },
-        take: limit,
-        select: { lastReport: true },
-      });
-      const now = Date.now();
-      return tokens
-        .map((t) => t.lastReport as unknown as TokenReport | null)
-        .filter((r): r is TokenReport => !!r && typeof r === "object" && "scores" in r)
-        .map((r) => {
-          const theses = r.social.theses.value ?? [];
-          const authors = new Map(
-            (r.social.authors.value ?? []).map((a) => [a.handle.toLowerCase(), a]),
-          );
-          const latest = theses.length
-            ? Math.max(...theses.map((t) => Date.parse(t.createdAt)))
-            : null;
-          return {
-            address: r.address,
-            symbol: r.token.symbol.value,
-            name: r.token.name.value,
-            chain: r.chainName,
-            marketCapUsd: r.market.marketCapUsd.value,
-            liquidityUsd: r.market.liquidityUsd.value,
-            socialMomentum: r.scores.socialMomentum.value,
-            contractSafety: r.scores.contractSafety.value,
-            liquidityHealth: r.scores.liquidityHealth.value,
-            distributionHealth: r.scores.distributionHealth.value,
-            qualityAuthors: r.social.available
-              ? [...authors.values()].filter((a) => a.qualityTier === "high").length
-              : null,
-            signalAgeMinutes: latest ? Math.round((now - latest) / 60_000) : null,
-            change5m: r.market.priceChange.value?.m5 ?? null,
-            change1h: r.market.priceChange.value?.h1 ?? null,
-            change6h: r.market.priceChange?.value?.h6 ?? null,
-            change24h: r.market.priceChange?.value?.h24 ?? null,
-            priceUsd: r.market.priceUsd?.value ?? null,
-            volume24hUsd: r.market.volume?.value?.h24 ?? null,
-            buys24h: r.market.txns?.value?.h24?.buys ?? null,
-            sells24h: r.market.txns?.value?.h24?.sells ?? null,
-            pairCreatedAt: r.liquidity?.mainPair?.value?.pairCreatedAt ?? null,
-            verdict: verdictLevel([
-              r.scores.contractSafety.level,
-              r.scores.liquidityHealth.level,
-              r.scores.distributionHealth.level,
-            ] as RiskLevel[]),
-            chainKey: chainSlug(r.chainId),
-            live: false,
-            updatedAt: r.generatedAt,
-            stale: now - Date.parse(r.generatedAt) > 10 * 60_000,
+      const tokens = await getDb().$queryRaw<
+        Array<{
+          report: Pick<TokenReport, "address" | "chainId" | "chainName" | "generatedAt"> & {
+            token: Pick<TokenReport["token"], "symbol" | "name">;
+            market: Omit<TokenReport["market"], "pairs">;
+            liquidity: { mainPair: { value: { pairCreatedAt: string | null } | null } };
+            scores: TokenReport["scores"];
           };
-        });
+          qualityAuthors: number | null;
+          latestThesis: string | null;
+        }>
+      >`
+        SELECT jsonb_build_object(
+          'address', address, 'chainId', "chainId",
+          'chainName', "lastReport"->'chainName', 'generatedAt', "lastReport"->'generatedAt',
+          'token', jsonb_build_object('symbol', "lastReport"->'token'->'symbol', 'name', "lastReport"->'token'->'name'),
+          'market', ("lastReport"->'market') - 'pairs',
+          'liquidity', jsonb_build_object('mainPair', jsonb_build_object('value', jsonb_build_object(
+            'pairCreatedAt', "lastReport"->'liquidity'->'mainPair'->'value'->'pairCreatedAt'))),
+          'scores', (SELECT jsonb_object_agg(key, jsonb_build_object('value', value->'value', 'level', value->'level'))
+            FROM jsonb_each("lastReport"->'scores'))
+        ) AS report,
+        CASE WHEN "lastReport"->'social'->>'available' = 'true' THEN
+          (SELECT count(DISTINCT lower(a->>'handle'))::int FROM jsonb_array_elements(
+            COALESCE(NULLIF("lastReport"->'social'->'authors'->'value', 'null'::jsonb), '[]'::jsonb)) a
+            WHERE a->>'qualityTier' = 'high') ELSE NULL END AS "qualityAuthors",
+        (SELECT max(t->>'createdAt') FROM jsonb_array_elements(
+          COALESCE(NULLIF("lastReport"->'social'->'theses'->'value', 'null'::jsonb), '[]'::jsonb)) t) AS "latestThesis"
+        FROM "Token"
+        WHERE "lastScannedAt" IS NOT NULL AND jsonb_typeof("lastReport"->'scores') = 'object'
+        ORDER BY "lastScannedAt" DESC LIMIT ${limit}
+      `;
+      const now = Date.now();
+      return tokens.map(({ report: r, qualityAuthors, latestThesis }) => {
+        const latest = latestThesis ? Date.parse(latestThesis) : null;
+        return {
+          address: r.address,
+          symbol: r.token.symbol.value,
+          name: r.token.name.value,
+          chain: r.chainName,
+          marketCapUsd: r.market.marketCapUsd.value,
+          liquidityUsd: r.market.liquidityUsd.value,
+          socialMomentum: r.scores.socialMomentum.value,
+          contractSafety: r.scores.contractSafety.value,
+          liquidityHealth: r.scores.liquidityHealth.value,
+          distributionHealth: r.scores.distributionHealth.value,
+          qualityAuthors,
+          signalAgeMinutes: latest ? Math.round((now - latest) / 60_000) : null,
+          change5m: r.market.priceChange.value?.m5 ?? null,
+          change1h: r.market.priceChange.value?.h1 ?? null,
+          change6h: r.market.priceChange?.value?.h6 ?? null,
+          change24h: r.market.priceChange?.value?.h24 ?? null,
+          priceUsd: r.market.priceUsd?.value ?? null,
+          volume24hUsd: r.market.volume?.value?.h24 ?? null,
+          buys24h: r.market.txns?.value?.h24?.buys ?? null,
+          sells24h: r.market.txns?.value?.h24?.sells ?? null,
+          pairCreatedAt: r.liquidity?.mainPair?.value?.pairCreatedAt ?? null,
+          verdict: verdictLevel([
+            r.scores.contractSafety.level,
+            r.scores.liquidityHealth.level,
+            r.scores.distributionHealth.level,
+          ] as RiskLevel[]),
+          chainKey: chainSlug(r.chainId),
+          live: false,
+          updatedAt: r.generatedAt,
+          stale: now - Date.parse(r.generatedAt) > 10 * 60_000,
+        };
+      });
     },
     [],
   );

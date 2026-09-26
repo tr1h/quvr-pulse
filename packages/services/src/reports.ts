@@ -1,3 +1,6 @@
+import { checkOperation, withOperationTimeout } from "@quvr/providers";
+import { acquireLease } from "./lease";
+import { withLiveMarket } from "./report-market";
 import {
   logger,
   normalizeTokenAddress,
@@ -7,7 +10,11 @@ import {
 } from "@quvr/shared";
 import { cacheGet, cacheSet, swr } from "./cache";
 import { resolveTokenChain } from "./chain-resolve";
-import { loadLastReport as loadAnyChainReport, persistReport, recordSourceStatus } from "./persistence";
+import {
+  loadLastReport as loadAnyChainReport,
+  persistReport,
+  recordSourceStatus,
+} from "./persistence";
 import { buildTokenReport } from "./scan/report";
 import { buildSolanaTokenReport } from "./scan/solana-report";
 
@@ -33,7 +40,7 @@ async function loadLastReport(token: string): Promise<TokenReport | null> {
   return last.chainId === (await resolveTokenChain(token)) ? last : null;
 }
 
-const FRESH_SECONDS = 20; // price & liquidity refresh target: 10–20 s
+const FRESH_SECONDS = 5 * 60; // Heavy risk analysis; display prices refresh independently.
 const KEEP_SECONDS = 3_600;
 let lastStatusWrite = 0;
 
@@ -57,27 +64,37 @@ export async function refreshTokenReport(
   address: string,
 ): Promise<{ report: TokenReport; previous: TokenReport | null }> {
   const token = normalizeTokenAddress(address);
-  const prevCached = await cacheGet<TokenReport>(`report:${token}`);
-  const previous = prevCached?.value ?? (await loadLastReport(token));
-  // Background refresh may wait for the full transfer history (public RPC log budget).
-  const { report, codeHash } = await buildAny(token, previous, {
-    historyBudgetMs: 300_000,
-  });
-  await persistReport(report, { codeHash });
-  await cacheSet(`report:${token}`, report, KEEP_SECONDS);
+  const previous =
+    (await cacheGet<TokenReport>(`report:${token}`))?.value ?? (await loadLastReport(token));
+  const report = await buildInBackground(token);
   return { report, previous };
 }
 
 async function produce(token: string): Promise<TokenReport> {
-  const prevCached = await cacheGet<TokenReport>(`report:${token}`);
-  const prev = prevCached?.value ?? (await loadLastReport(token));
-  const { report, codeHash } = await buildAny(token, prev);
-  await persistReport(report, { codeHash });
-  if (Date.now() - lastStatusWrite > 30_000) {
-    lastStatusWrite = Date.now();
-    void recordSourceStatus("web");
+  const release = await acquireLease(`report:${token}`, 7 * 60_000);
+  try {
+    const prev =
+      (await cacheGet<TokenReport>(`report:${token}`))?.value ?? (await loadLastReport(token));
+    if (!release) {
+      if (prev) return prev;
+      throw new Error("report is being built by another worker or Redis is unavailable");
+    }
+    if (prev && Date.now() - Date.parse(prev.generatedAt) < FRESH_SECONDS * 1000) return prev;
+    return await withOperationTimeout(6 * 60_000, async () => {
+      const { report, codeHash } = await buildAny(token, prev, { historyBudgetMs: 300_000 });
+      checkOperation();
+      await persistReport(report, { codeHash });
+      checkOperation();
+      await cacheSet(`report:${token}`, report, KEEP_SECONDS);
+      if (Date.now() - lastStatusWrite > 30_000) {
+        lastStatusWrite = Date.now();
+        void recordSourceStatus("web");
+      }
+      return report;
+    });
+  } finally {
+    await release?.();
   }
-  return report;
 }
 
 export type ReportResponse = {
@@ -86,18 +103,15 @@ export type ReportResponse = {
   servedFrom: "fresh" | "cache" | "stale-cache" | "database" | "quick";
 };
 
-/** Full builds started for first visitors (deduplicated per token). */
+/** Shared by page refreshes, worker jobs and social events in this process. */
 const BACKGROUND = new Map<string, Promise<TokenReport>>();
 
 function buildInBackground(token: string): Promise<TokenReport> {
   const running = BACKGROUND.get(token);
   if (running) return running;
-  const p = produce(token)
-    .then(async (report) => {
-      await cacheSet(`report:${token}`, report, KEEP_SECONDS);
-      return report;
-    })
-    .finally(() => BACKGROUND.delete(token));
+  const p = produce(token).finally(() => {
+    if (BACKGROUND.get(token) === p) BACKGROUND.delete(token);
+  });
   p.catch((e) => logger.warn("background report failed", { token, error: (e as Error).message }));
   BACKGROUND.set(token, p);
   return p;
@@ -110,10 +124,17 @@ export async function waitForFullReport(
 ): Promise<TokenReport | null> {
   const p = BACKGROUND.get(normalizeTokenAddress(address));
   if (!p) return null;
-  return Promise.race([
-    p.catch(() => null),
-    new Promise<null>((res) => setTimeout(() => res(null), timeoutMs)),
-  ]);
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  try {
+    return await Promise.race([
+      p.catch(() => null),
+      new Promise<null>((res) => {
+        timer = setTimeout(() => res(null), timeoutMs);
+      }),
+    ]);
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 const RECENT_MS = 10 * 60_000;
@@ -135,52 +156,23 @@ export async function getTokenReport(
     const last = await loadLastReport(token);
     if (last) return { report: last, servedFrom: "database" };
   }
-  // First visitor for this token in this process (nothing in the fast cache): answer at once.
-  if (!(await cacheGet<TokenReport>(`report:${token}`))) {
-    const last = await loadLastReport(token);
-    if (last) {
-      // Stored by the worker or an earlier visit: show it now, refresh behind the scenes.
-      void buildInBackground(token).catch(() => undefined);
-      const recent = Date.now() - Date.parse(last.generatedAt) < RECENT_MS;
-      return recent
-        ? { report: last, servedFrom: "cache" }
-        : { report: deepMarkStale(last), servedFrom: "database" };
-    }
-    if (parseTokenRef(token)?.chain !== "solana") {
-      // Brand-new token: a quick partial report in seconds (Solana builds are fast anyway).
-      const quickKey = `report-quick:${token}`;
-      const hit = await cacheGet<TokenReport>(quickKey);
-      const quick =
-        hit?.value ??
-        (await buildAny(token, null, { quick: true })
-          .then(async ({ report }) => {
-            await cacheSet(quickKey, report, 60);
-            return report;
-          })
-          .catch(() => null));
-      if (quick) {
-        void buildInBackground(token).catch(() => undefined);
-        return { report: quick, servedFrom: "quick" };
-      }
-    }
+  const cached = await cacheGet<TokenReport>(`report:${token}`);
+  const last = cached?.value ?? (await loadLastReport(token));
+  if (last) {
+    const age = Date.now() - Date.parse(last.generatedAt);
+    if (age >= FRESH_SECONDS * 1000) void buildInBackground(token).catch(() => undefined);
+    const report = age >= RECENT_MS ? deepMarkStale(last) : last;
+    return {
+      report: await withLiveMarket(report),
+      servedFrom: age >= RECENT_MS ? "stale-cache" : cached ? "cache" : "database",
+    };
   }
-  try {
-    const r = await swr(
-      `report:${token}`,
-      { freshSeconds: FRESH_SECONDS, keepSeconds: KEEP_SECONDS },
-      () => produce(token),
+  if (parseTokenRef(token)?.chain !== "solana") {
+    const quick = await swr(`report-quick:${token}`, { freshSeconds: 60, keepSeconds: 60 }, () =>
+      buildAny(token, null, { quick: true }).then((r) => r.report),
     );
-    if (!r.isStale)
-      return {
-        report: r.value,
-        servedFrom: Date.now() - Date.parse(r.fetchedAt) < 2_000 ? "fresh" : "cache",
-      };
-    const ageMs = Date.now() - Date.parse(r.fetchedAt);
-    return { report: ageMs > 60_000 ? deepMarkStale(r.value) : r.value, servedFrom: "stale-cache" };
-  } catch (e) {
-    logger.error("report build failed", { token, error: (e as Error).message });
-    const last = await loadLastReport(token);
-    if (last) return { report: deepMarkStale(last), servedFrom: "database" };
-    throw e;
+    void buildInBackground(token).catch(() => undefined);
+    return { report: quick.value, servedFrom: "quick" };
   }
+  return { report: await buildInBackground(token), servedFrom: "fresh" };
 }

@@ -9,6 +9,7 @@ import type { SocialProvider } from "./social/types";
 export * from "./errors";
 export * from "./http";
 export * from "./resilience";
+export * from "./operation";
 export * from "./chain/types";
 export * from "./chain/rpc";
 export * from "./chain/erc20";
