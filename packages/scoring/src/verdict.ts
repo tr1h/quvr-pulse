@@ -77,7 +77,12 @@ export function verdictLevel(levels: RiskLevel[]): RiskLevel {
 }
 
 export function riskVerdict(input: VerdictInput): Verdict {
-  const level = verdictLevel(Object.values(input.scores).map((s) => s.level as RiskLevel));
+  // Only the three risk scores: callers often pass the full report scores, and social momentum
+  // (attention, not risk) must never pull the verdict towards "insufficient data".
+  const { contractSafety, liquidityHealth, distributionHealth } = input.scores;
+  const level = verdictLevel(
+    [contractSafety, liquidityHealth, distributionHealth].map((s) => s.level as RiskLevel),
+  );
 
   const rank = { critical: 0, high: 1, medium: 2, low: 3, info: 4 } as const;
   const redFlags = input.findings

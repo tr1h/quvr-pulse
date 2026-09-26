@@ -1,7 +1,8 @@
 import type { Hex } from "viem";
 import {
   describeError,
-  getProviders, getChainProviders,
+  getProviders,
+  getChainProviders,
   metricsSnapshot,
   readBalances,
   toUnits,
@@ -167,42 +168,44 @@ export async function buildTokenReport(
               totalSupplyRaw,
               deployer: creation?.deployer ?? null,
               poolManager,
-              pairAddresses: pairs.filter((x) => x.pairAddress.length === 42).map((x) => x.pairAddress),
+              pairAddresses: pairs
+                .filter((x) => x.pairAddress.length === 42)
+                .map((x) => x.pairAddress),
               hasV4Pool: hasV4,
               explorerUsable: true,
             }),
           )
         : Promise.resolve({ ok: false, error: "explorer holder list unavailable" })
-    : isContract && clock && decimals !== null && totalSupplyRaw !== null
-      ? settle(
-          (async () => {
-            const fromBlock = creation?.blockNumber ?? Math.max(0, clock.headBlock - 2_000_000);
-            const history = await loadTransferHistory(
-              p.chain,
-              address,
-              fromBlock,
-              clock.headBlock,
-              opts.historyBudgetMs ?? 15_000,
-            );
-            const res = await analyzeDistribution(p.chain, p.explorer, history, {
-              token: address,
-              decimals,
-              totalSupplyRaw,
-              deployer: creation?.deployer ?? null,
-              initialMintTo: creation?.initialMintTo ?? null,
-              poolManager,
-              pairAddresses: pairs
-                .filter((x) => x.pairAddress.length === 42)
-                .map((x) => x.pairAddress),
-              hasV4Pool: hasV4,
-              clock,
-              explorerUsable: explorerState.usable,
-            });
-            if (!creation) res.complete = false;
-            return res;
-          })(),
-        )
-      : Promise.resolve({ ok: false, error: "token metadata or RPC unavailable" });
+      : isContract && clock && decimals !== null && totalSupplyRaw !== null
+        ? settle(
+            (async () => {
+              const fromBlock = creation?.blockNumber ?? Math.max(0, clock.headBlock - 2_000_000);
+              const history = await loadTransferHistory(
+                p.chain,
+                address,
+                fromBlock,
+                clock.headBlock,
+                opts.historyBudgetMs ?? 15_000,
+              );
+              const res = await analyzeDistribution(p.chain, p.explorer, history, {
+                token: address,
+                decimals,
+                totalSupplyRaw,
+                deployer: creation?.deployer ?? null,
+                initialMintTo: creation?.initialMintTo ?? null,
+                poolManager,
+                pairAddresses: pairs
+                  .filter((x) => x.pairAddress.length === 42)
+                  .map((x) => x.pairAddress),
+                hasV4Pool: hasV4,
+                clock,
+                explorerUsable: explorerState.usable,
+              });
+              if (!creation) res.complete = false;
+              return res;
+            })(),
+          )
+        : Promise.resolve({ ok: false, error: "token metadata or RPC unavailable" });
 
   const activityP: Promise<Settled<PoolActivity | null>> = quick
     ? Promise.resolve({ ok: true, value: null })
@@ -287,7 +290,8 @@ export async function buildTokenReport(
   let social: SocialBundle | null = null;
   let socialError: string | null = null;
   if (quick) socialError = QUICK_PENDING;
-  else if (chainCfg.key !== "robinhood") socialError = `social data covers Robinhood Chain and Solana, not ${chainCfg.name}`;
+  else if (chainCfg.key !== "robinhood")
+    socialError = `social data covers Robinhood Chain and Solana, not ${chainCfg.name}`;
   else if (p.social.isEnabled()) {
     const r = await settle(
       loadSocial(
@@ -414,7 +418,10 @@ export async function buildTokenReport(
       code: "data.chain-scope",
       category: "data",
       severity: "info",
-      title: t(`${chainCfg.name}: часть проверок пока недоступна`, `${chainCfg.name}: some checks are not available yet`),
+      title: t(
+        `${chainCfg.name}: часть проверок пока недоступна`,
+        `${chainCfg.name}: some checks are not available yet`,
+      ),
       explanation: t(
         "Держатели и их концентрация берутся из списка Blockscout. Рост числа держателей, новые кошельки, массовые рассылки и действия создателя для этой сети пока не отслеживаются — они отмечены «Нет данных». Связи кошельков ищутся только по общему источнику финансирования.",
         "Holders and concentration come from the Blockscout holder list. Holder growth, new wallets, mass transfers and creator activity are not tracked on this chain yet — they are marked “No data”. Wallet links use common funding sources only.",
@@ -797,7 +804,7 @@ export async function buildTokenReport(
       ? sourced(dist.deployerActions, distSource, { confidence: creation ? "high" : "low" })
       : dist
         ? unavailable(distSource, `creator activity is not tracked on ${chainCfg.name} yet`)
-      : unavailable(distSource, distR.ok ? "unknown" : distR.error),
+        : unavailable(distSource, distR.ok ? "unknown" : distR.error),
     social: {
       available: !!social,
       reason: socialReason,
@@ -834,6 +841,18 @@ export async function buildTokenReport(
   };
 
   const merged = prev ? mergeWithPrevious(report, prev) : report;
+  // A refresh that could not finish (e.g. holder history still loading under the public RPC log
+  // budget) must not erase a score that was already computed: keep the previous one — its
+  // updatedAt shows its age — while the underlying values are shown stale.
+  if (prev?.scores) {
+    const keep = (k: "distributionHealth" | "contractSafety", failed: boolean) => {
+      const old = prev.scores[k];
+      if (failed && old && old.value !== null && merged.scores[k].value === null)
+        merged.scores = { ...merged.scores, [k]: old };
+    };
+    keep("distributionHealth", !distR.ok);
+    keep("contractSafety", !contractR.ok);
+  }
   log.info("report built", {
     ms: Date.now() - now.getTime(),
     findings: findings.length,

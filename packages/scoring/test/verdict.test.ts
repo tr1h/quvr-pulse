@@ -77,3 +77,18 @@ describe("riskVerdict", () => {
     expect(tones.filter((t) => t === "negative")).toHaveLength(4); // pump, sells, thin liq, no volume
   });
 });
+
+describe("riskVerdict ignores social momentum", () => {
+  it("one missing risk score stays elevated even when social data is missing too", () => {
+    const base = input(["low", "low", "insufficient"]);
+    const withSocial = {
+      ...base,
+      scores: {
+        ...base.scores,
+        socialMomentum: { ...score("insufficient"), key: "socialMomentum" },
+      },
+    } as unknown as VerdictInput;
+    expect(riskVerdict(withSocial).level).toBe("elevated");
+    expect(riskVerdict(base).level).toBe("elevated");
+  });
+});
