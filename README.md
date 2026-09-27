@@ -56,7 +56,7 @@ if (oracle.isHighRisk(token, 3 days) == (true, true)) {
 
 ```
 apps/web           Next.js 15 (App Router): pages + API. External APIs are called server-side only
-apps/worker        BullMQ jobs: market 15 s, holders/alerts 5 min, outcomes 5 min, oracle publisher 30 min
+apps/worker        BullMQ jobs: market 15 s, holders/alerts 5 min, outcomes 5 min, oracle publisher 10 min
 apps/telegram      grammY bot: /scan, /watch, auto-checks addresses posted in groups, inline mode
 packages/providers RPC / Blockscout / Dexscreener / GeckoTerminal / Solana / Fomo + rate limits, circuit breakers
 packages/scoring   pure functions: bytecode analysis, 4 scores, holder clusters, price impact, track record
@@ -65,7 +65,7 @@ packages/db        Prisma schema and migrations (PostgreSQL)
 contracts          Hardhat: QuvrRiskOracle, QuvrRiskHook, Create2Deployer + tests
 ```
 
-Flow: token address → contract / liquidity / holder / creator analysis → report with sourced values → baseline stored for the track record → label published to `QuvrRiskOracle` (liquid Robinhood Chain tokens, every 30 min, budget-capped) → read by the site, integrators and the Uniswap v4 hook.
+Flow: token address → contract / liquidity / holder / creator analysis → report with sourced values → baseline stored for the track record → label published to `QuvrRiskOracle` (liquid Robinhood Chain tokens, every 10 min, one label per window at the default 144/day cap) → read by the site, integrators and the Uniswap v4 hook.
 
 ## Tests
 

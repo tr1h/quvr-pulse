@@ -1,6 +1,13 @@
-import { chainSlug, type RiskFinding, type RiskLevel, type Severity, type TokenReport } from "@quvr/shared";
+import {
+  chainSlug,
+  type RiskFinding,
+  type RiskLevel,
+  type Severity,
+  type TokenReport,
+} from "@quvr/shared";
 import { rowFlags, type RugFlagId } from "./rug-report";
 import { verdictLevel } from "./verdict";
+import { earlyDiscoveryFromReport, type DiscoveryStatus } from "./early-discovery";
 
 /**
  * Outcome tracking: what a token looked like when we first checked it (baseline) and what
@@ -28,6 +35,13 @@ export type BaselineFeatures = {
   liquidityToMcap: number | null;
   clusters: number | null;
   priceChange1h: number | null;
+  /** Discovery snapshot captured before outcomes; used for forward-only validation. */
+  discovery: {
+    score: number | null;
+    status: DiscoveryStatus;
+    coverage: number;
+    gateReasons: string[];
+  };
 };
 
 export type Baseline = {
@@ -64,6 +78,7 @@ export function reportFeatures(r: TokenReport): BaselineFeatures {
     liquidity: r.scores.liquidityHealth.level as RiskLevel,
     distribution: r.scores.distributionHealth.level as RiskLevel,
   };
+  const discovery = earlyDiscoveryFromReport(r);
   return {
     chain,
     levels,
@@ -74,6 +89,12 @@ export function reportFeatures(r: TokenReport): BaselineFeatures {
     liquidityToMcap: r.liquidity.liquidityToMcap.value,
     clusters: r.distribution.clusters.value?.length ?? null,
     priceChange1h: r.market.priceChange.value?.h1 ?? null,
+    discovery: {
+      score: discovery.score,
+      status: discovery.status,
+      coverage: discovery.coverage,
+      gateReasons: discovery.gate.reasons,
+    },
   };
 }
 
@@ -82,28 +103,14 @@ export function baselineFromReport(r: TokenReport): Baseline | null {
   const price = r.market.priceUsd.value;
   if (price === null || !(price > 0)) return null;
   const chain = chainSlug(r.chainId);
-  const levels = {
-    contract: r.scores.contractSafety.level as RiskLevel,
-    liquidity: r.scores.liquidityHealth.level as RiskLevel,
-    distribution: r.scores.distributionHealth.level as RiskLevel,
-  };
+  const features = reportFeatures(r);
   return {
     chain,
     priceUsd: price,
     liquidityUsd: r.market.liquidityUsd.value,
     marketCapUsd: r.market.marketCapUsd.value ?? r.market.fdvUsd.value,
     poolAgeHours: r.liquidity.poolAgeHours.value,
-    features: {
-      chain,
-      levels,
-      verdict: verdictLevel([levels.contract, levels.liquidity, levels.distribution]),
-      flags: flagsFromFindings(r.findings),
-      top10: r.distribution.concentration.value?.top10 ?? null,
-      deployerShare: r.distribution.deployerShare.value,
-      liquidityToMcap: r.liquidity.liquidityToMcap.value,
-      clusters: r.distribution.clusters.value?.length ?? null,
-      priceChange1h: r.market.priceChange.value?.h1 ?? null,
-    },
+    features,
   };
 }
 

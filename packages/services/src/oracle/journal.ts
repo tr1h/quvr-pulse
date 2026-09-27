@@ -1,6 +1,7 @@
 import { getDb, toJson } from "@quvr/db";
 import type { OracleLabel } from "@quvr/scoring";
 import type { Hex } from "viem";
+import { oracleWindow } from "./pacing";
 
 export type PublishedLabel = {
   token: string;
@@ -20,7 +21,7 @@ export type Publication = {
 };
 
 export function dailyLimit(value = process.env.ORACLE_DAILY_LIMIT): number {
-  if (value === undefined) return 300;
+  if (value === undefined) return 144;
   const parsed = Number(value);
   if (!value.trim() || !Number.isSafeInteger(parsed) || parsed < 0)
     throw new Error("ORACLE_DAILY_LIMIT must be a non-negative integer");
@@ -46,18 +47,30 @@ export async function reservePublication(
     if (pending) return pending;
     // Repeated recovery cannot reserve the same transaction twice.
     if (await tx.oraclePublication.findUnique({ where: { hash: publication.hash } })) return null;
+    const now = new Date();
+    const window = oracleWindow(cap, now);
+    // Preparing/signing may cross midnight. Never charge a new write to yesterday's budget.
+    if (publication.day !== window.day) return null;
+    if (!Number.isSafeInteger(publication.labelCount) || publication.labelCount <= 0) return null;
     const budget = await tx.oracleDayBudget.upsert({
       where: { day: publication.day },
       create: { day: publication.day, used: legacySpent },
       update: {},
     });
     if (budget.used + publication.labelCount > cap) return null;
+    // Same lock as the daily reservation: concurrent workers/restarts cannot reuse a slot.
+    // Pending and reverted transactions count too, since they have reserved/spent gas.
+    const slot = await tx.oraclePublication.aggregate({
+      where: { day: window.day, createdAt: { gte: window.start, lt: window.end } },
+      _sum: { labelCount: true },
+    });
+    if ((slot._sum.labelCount ?? 0) + publication.labelCount > window.allowance) return null;
     await tx.oracleDayBudget.update({
       where: { day: publication.day },
       data: { used: { increment: publication.labelCount } },
     });
     return tx.oraclePublication.create({
-      data: { ...publication, labels: toJson(publication.labels) },
+      data: { ...publication, labels: toJson(publication.labels), createdAt: now },
     });
   });
 }

@@ -16,12 +16,14 @@ type SortKey =
   | "age"
   | "flow"
   | "risk"
+  | "discovery"
   | "contractSafety"
   | "socialMomentum";
 
-type Preset = "gainers" | "losers" | "volume" | "new" | "liquidity";
+type Preset = "discovery" | "gainers" | "losers" | "volume" | "new" | "liquidity";
 type Chain = "all" | "robinhood" | "base" | "solana";
 type RiskFilter = "all" | "no-high" | "low";
+type DiscoveryFilter = "all" | "candidate" | "watch";
 
 export type RadarLabels = {
   token: string;
@@ -33,12 +35,18 @@ export type RadarLabels = {
   age: string;
   flow: string;
   risk: string;
+  discovery: string;
   contract: string;
   social: string;
   filter: string;
   allChains: string;
   presets: Record<Preset, string>;
   riskFilter: Record<RiskFilter, string>;
+  discoveryFilter: Record<DiscoveryFilter, string>;
+  discoveryStatuses: Record<RadarRow["discovery"]["status"], string>;
+  discoveryFactors: Record<RadarRow["discovery"]["factors"][number]["id"], string>;
+  discoveryGateReasons: Record<RadarRow["discovery"]["gate"]["reasons"][number], string>;
+  coverage: string;
   minLiquidity: string;
   any: string;
   levels: Record<RadarRow["verdict"], string>;
@@ -49,11 +57,18 @@ export type RadarLabels = {
 };
 
 const PRESETS: Record<Preset, { key: SortKey; dir: 1 | -1 }> = {
+  discovery: { key: "discovery", dir: -1 },
   gainers: { key: "change1h", dir: -1 },
   losers: { key: "change1h", dir: 1 },
   volume: { key: "volume24hUsd", dir: -1 },
   new: { key: "age", dir: 1 },
   liquidity: { key: "liquidityUsd", dir: -1 },
+};
+const DISCOVERY_COLOR: Record<RadarRow["discovery"]["status"], string> = {
+  candidate: "var(--color-signal)",
+  watch: "var(--color-risk-elevated)",
+  excluded: "var(--color-risk-high)",
+  insufficient: "var(--color-risk-none)",
 };
 const RISK_ORDER: Record<RadarRow["verdict"], number> = {
   low: 0,
@@ -73,7 +88,7 @@ const CHAIN_SHORT: Record<RadarRow["chainKey"], string> = {
   solana: "SOL",
 };
 const MIN_LIQ = [0, 1_000, 10_000, 50_000];
-const STORE = "quvr:radar:v2";
+const STORE = "quvr:radar:v3";
 
 const usd = (v: number | null) =>
   v === null
@@ -129,6 +144,8 @@ function sortValue(r: RadarRow, k: SortKey): number | null {
       return flow(r);
     case "risk":
       return RISK_ORDER[r.verdict];
+    case "discovery":
+      return r.discovery.score;
     default:
       return r[k];
   }
@@ -157,8 +174,9 @@ export function RadarTable({ rows, labels }: { rows: RadarRow[]; labels: RadarLa
   const [q, setQ] = useState("");
   const [chain, setChain] = useState<Chain>("all");
   const [risk, setRisk] = useState<RiskFilter>("all");
+  const [discovery, setDiscovery] = useState<DiscoveryFilter>("all");
   const [minLiq, setMinLiq] = useState(0);
-  const [sort, setSort] = useState<{ key: SortKey; dir: 1 | -1 }>(PRESETS.gainers);
+  const [sort, setSort] = useState<{ key: SortKey; dir: 1 | -1 }>(PRESETS.discovery);
 
   // Remember the viewer's filters on this device (a convenience; the page works without it).
   useEffect(() => {
@@ -168,11 +186,13 @@ export function RadarTable({ rows, labels }: { rows: RadarRow[]; labels: RadarLa
       const s = JSON.parse(raw) as Partial<{
         chain: Chain;
         risk: RiskFilter;
+        discovery: DiscoveryFilter;
         minLiq: number;
         sort: { key: SortKey; dir: 1 | -1 };
       }>;
       if (s.chain) setChain(s.chain);
       if (s.risk) setRisk(s.risk);
+      if (s.discovery) setDiscovery(s.discovery);
       if (typeof s.minLiq === "number" && MIN_LIQ.includes(s.minLiq)) setMinLiq(s.minLiq);
       if (s.sort?.key) setSort(s.sort);
     } catch {
@@ -181,11 +201,11 @@ export function RadarTable({ rows, labels }: { rows: RadarRow[]; labels: RadarLa
   }, []);
   useEffect(() => {
     try {
-      window.localStorage.setItem(STORE, JSON.stringify({ chain, risk, minLiq, sort }));
+      window.localStorage.setItem(STORE, JSON.stringify({ chain, risk, discovery, minLiq, sort }));
     } catch {
       /* storage unavailable */
     }
-  }, [chain, risk, minLiq, sort]);
+  }, [chain, risk, discovery, minLiq, sort]);
 
   const counts = useMemo(() => {
     const c: Record<Chain, number> = { all: rows.length, robinhood: 0, base: 0, solana: 0 };
@@ -201,6 +221,7 @@ export function RadarTable({ rows, labels }: { rows: RadarRow[]; labels: RadarLa
       .filter((r) =>
         risk === "all" ? true : risk === "low" ? r.verdict === "low" : r.verdict !== "high",
       )
+      .filter((r) => discovery === "all" || r.discovery.status === discovery)
       .filter((r) => minLiq === 0 || (r.liquidityUsd ?? -1) >= minLiq)
       .filter(
         (r) =>
@@ -217,7 +238,7 @@ export function RadarTable({ rows, labels }: { rows: RadarRow[]; labels: RadarLa
         if (bv === null) return -1;
         return (av - bv) * sort.dir;
       });
-  }, [rows, q, chain, risk, minLiq, sort]);
+  }, [rows, q, chain, risk, discovery, minLiq, sort]);
 
   const chip = (active: boolean) =>
     `rounded-sm border px-2 py-1 font-mono text-xs ${
@@ -299,6 +320,18 @@ export function RadarTable({ rows, labels }: { rows: RadarRow[]; labels: RadarLa
         />
         <div className="flex gap-2">
           <select
+            value={discovery}
+            onChange={(e) => setDiscovery(e.target.value as DiscoveryFilter)}
+            className="h-9 rounded border border-rule bg-ink px-2 text-sm text-paper"
+            aria-label={labels.discovery}
+          >
+            {(["all", "candidate", "watch"] as DiscoveryFilter[]).map((v) => (
+              <option key={v} value={v}>
+                {labels.discoveryFilter[v]}
+              </option>
+            ))}
+          </select>
+          <select
             value={risk}
             onChange={(e) => setRisk(e.target.value as RiskFilter)}
             className="h-9 rounded border border-rule bg-ink px-2 text-sm text-paper"
@@ -339,12 +372,13 @@ export function RadarTable({ rows, labels }: { rows: RadarRow[]; labels: RadarLa
         <p className="panel p-4 text-sm text-muted">{labels.empty}</p>
       ) : (
         <div className="panel overflow-x-auto">
-          <table className="w-full min-w-[1080px] text-sm" data-testid="radar-table">
+          <table className="w-full min-w-[1180px] text-sm" data-testid="radar-table">
             <thead>
               <tr className="border-b border-rule">
                 <th className="label sticky left-0 z-10 bg-panel px-2 py-2 text-left font-normal">
                   {labels.token}
                 </th>
+                <Th k="discovery">{labels.discovery}</Th>
                 <Th k="priceUsd">{labels.price}</Th>
                 <Th k="change5m">5m</Th>
                 <Th k="change1h">1h</Th>
@@ -363,6 +397,15 @@ export function RadarTable({ rows, labels }: { rows: RadarRow[]; labels: RadarLa
             <tbody>
               {view.map((r, i) => {
                 const f = flow(r);
+                const discoveryTitle = [
+                  `${labels.discoveryStatuses[r.discovery.status]}${r.discovery.score === null ? "" : `: ${r.discovery.score}/100`}`,
+                  `${labels.coverage}: ${Math.round(r.discovery.coverage * 100)}%`,
+                  ...r.discovery.gate.reasons.map((reason) => labels.discoveryGateReasons[reason]),
+                  ...r.discovery.factors.map(
+                    (factor) =>
+                      `${labels.discoveryFactors[factor.id]}: ${factor.points === null ? "—" : `${factor.points}/${factor.max}`}`,
+                  ),
+                ].join("\n");
                 return (
                   <tr
                     key={r.address}
@@ -386,6 +429,20 @@ export function RadarTable({ rows, labels }: { rows: RadarRow[]; labels: RadarLa
                           <div className="max-w-[11rem] truncate text-xs text-dim">{r.name}</div>
                         </div>
                       </div>
+                    </td>
+                    <td className="px-2 py-2 text-right">
+                      <span
+                        className="inline-flex min-w-[4.5rem] items-center justify-center gap-1 whitespace-nowrap rounded-sm border px-1.5 py-0.5 font-mono text-[0.65rem]"
+                        style={{
+                          borderColor: DISCOVERY_COLOR[r.discovery.status],
+                          color: DISCOVERY_COLOR[r.discovery.status],
+                        }}
+                        title={discoveryTitle}
+                        data-testid={`discovery-${r.discovery.status}`}
+                      >
+                        {labels.discoveryStatuses[r.discovery.status]}
+                        {r.discovery.score !== null && <strong>{r.discovery.score}</strong>}
+                      </span>
                     </td>
                     <td className="num whitespace-nowrap px-2 py-2 text-right">
                       {price(r.priceUsd) ?? nd}

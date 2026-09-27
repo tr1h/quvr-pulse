@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="2560" height="1440" viewBox="0 0 2560 1440">
+<defs><radialGradient id="glow" cx="70%" cy="42%" r="65%"><stop stop-color="#352a0a"/><stop offset="1" stop-color="#0d100e"/></radialGradient><pattern id="grid" width="80" height="80" patternUnits="userSpaceOnUse"><path d="M80 0H0V80" fill="none" stroke="#a99f64" stroke-opacity=".055"/></pattern></defs>
+<rect width="2560" height="1440" fill="url(#glow)"/><rect width="2560" height="1440" fill="url(#grid)"/>
+<g fill="none" stroke="#ffb000" stroke-opacity=".09"><circle cx="2240" cy="380" r="380"/><circle cx="2240" cy="380" r="500"/><circle cx="2240" cy="380" r="620"/></g>
+<path d="M0 1040H330L370 958L420 1110L466 1002L500 1040H2560" fill="none" stroke="#ffb000" stroke-opacity=".17" stroke-width="4"/>
+<g transform="translate(635 645)"><circle cx="95" cy="75" r="116" fill="#171910" stroke="#46442b" stroke-width="2"/><path d="M10 75H53L72 19L102 133L124 53L146 75H185" fill="none" stroke="#ffb000" stroke-width="15" stroke-linejoin="round" stroke-linecap="round"/><path d="M176 59L200 75L176 91Z" fill="#ffb000"/></g>
+<text x="900" y="675" font-family="Arial,sans-serif" font-size="96" font-weight="700" letter-spacing="-3" fill="#eee9d9">QUVR <tspan fill="#ffb000">Pulse</tspan></text>
+<text x="900" y="752" font-family="Arial,sans-serif" font-size="43" fill="#eee9d9">Check the evidence before you buy.</text>
+<text x="900" y="812" font-family="Arial,sans-serif" font-size="27" letter-spacing="3" fill="#a6aa96">CONTRACTS · LIQUIDITY · HOLDERS</text>
+<text x="900" y="873" font-family="Arial,sans-serif" font-size="32" font-weight="700" fill="#ffb000">quvrpulse.com</text>
+</svg>

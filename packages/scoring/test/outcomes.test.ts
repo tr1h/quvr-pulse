@@ -15,6 +15,9 @@ describe("outcome tracking", () => {
     expect(b.features.verdict).toBe("high");
     expect(b.features.flags).toEqual(expect.arrayContaining(["concentrated", "deployer-share"]));
     expect(b.features.deployerShare).toBeCloseTo(0.267, 2);
+    expect(b.features.discovery.status).toBe("excluded");
+    expect(b.features.discovery.gateReasons).toContain("high-risk");
+    expect(b.features.discovery.gateReasons).toContain("liquidity-missing");
   });
 
   it("skips tokens without a price (nothing to compare later)", () => {

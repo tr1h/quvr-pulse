@@ -40,6 +40,9 @@ import { getRedis } from "../redis";
 import { safeDb } from "../persistence";
 import { ORACLE_ABI, ORACLE_BYTECODE } from "./artifact";
 import { CREATE2_ABI, CREATE2_BYTECODE, HOOK_ABI, HOOK_BYTECODE } from "./hook-artifact";
+import { oraclePublicationBudget } from "./budget";
+export { oraclePublicationBudget };
+export { ORACLE_INTERVAL_MS } from "./pacing";
 
 /**
  * QUVR Risk Oracle: publishes risk labels of Robinhood Chain tokens to QuvrRiskOracle.sol.
@@ -198,22 +201,21 @@ export async function publishOracleLabels(limit = 20): Promise<number> {
         throw new Error("pending publication belongs to another network");
       return await resumePublication(pending);
     }
-    const day = new Date().toISOString().slice(0, 10);
-    const raw = await redis.get(`quvr:oracle:day:${day}`);
-    const legacySpent = raw ? Number(JSON.parse(raw).value) : 0;
-    if (!Number.isSafeInteger(legacySpent) || legacySpent < 0)
-      throw new Error("invalid oracle budget counter");
-    const budget = await getDb().oracleDayBudget.findUnique({ where: { day } });
-    const remaining = Math.max(0, DAILY_LIMIT - (budget?.used ?? legacySpent));
+    const pacing = await oraclePublicationBudget();
+    const { day, remaining, used: legacySpent } = pacing;
     if (!remaining) {
       log.info("oracle skipped", {
         reason: "daily_limit",
-        used: budget?.used ?? legacySpent,
+        used: legacySpent,
         limit: DAILY_LIMIT,
       });
       return 0;
     }
-    limit = Math.min(Math.max(0, Math.floor(limit)), remaining);
+    if (!pacing.windowRemaining) {
+      log.info("oracle skipped", { reason: "window_limit", nextWindowAt: pacing.nextWindowAt });
+      return 0;
+    }
+    limit = Math.min(Math.max(0, Math.floor(limit)), remaining, pacing.windowRemaining);
     if (!Number.isFinite(limit) || !limit) return 0;
     const recent = await getDb().oraclePublication.findMany({
       where: {

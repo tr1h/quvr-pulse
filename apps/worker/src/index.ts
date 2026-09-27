@@ -7,7 +7,8 @@
  *  - new v4 pools: every 60 s
  *  - social WebSocket alerts: realtime (when FOMO_API_KEY is set)
  * Uses BullMQ repeatable jobs when Redis is reachable, otherwise an in-process scheduler,
- * so `npm run dev` still works without Docker. Read-only: never signs or sends transactions.
+ * so `npm run dev` still works without Docker. Only the configured Risk Oracle publisher signs
+ * transactions, within its daily and per-window allowance; user wallets remain read-only.
  */
 import { Queue, Worker } from "bullmq";
 import { getProviders } from "@quvr/providers";
@@ -22,6 +23,7 @@ import {
   pruneOldSnapshots,
   backfillBaselines,
   publishOracleLabels,
+  ORACLE_INTERVAL_MS,
   recordDueOutcomes,
   recordSourceStatus,
   refreshMarketSnapshots,
@@ -145,7 +147,7 @@ const jobs: Job[] = [
     // Risk Oracle: new/changed labels of liquid Robinhood Chain tokens → QuvrRiskOracle.sol.
     // A no-op until ORACLE_ADDRESS and ORACLE_PUBLISHER_KEY are set on the server.
     name: "oracle",
-    everyMs: 30 * 60_000,
+    everyMs: ORACLE_INTERVAL_MS,
     run: async () => {
       const n = await publishOracleLabels();
       if (n) log.info("oracle labels published", { count: n });
@@ -214,7 +216,7 @@ async function startBull() {
   for (const job of jobs) {
     await queue.upsertJobScheduler(
       `${job.name}-every`,
-      { every: job.everyMs },
+      job.name === "oracle" ? { pattern: "*/10 * * * *", tz: "UTC" } : { every: job.everyMs },
       { name: job.name, opts: { removeOnComplete: 100, removeOnFail: 100 } },
     );
   }

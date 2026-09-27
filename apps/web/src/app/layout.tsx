@@ -179,7 +179,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
               </Suspense>
             </div>
             <nav
-              className="-mx-2 flex w-full items-center gap-1 text-sm sm:mx-0 sm:ml-auto sm:w-auto"
+              className="-mx-2 flex w-full flex-wrap items-center gap-1 text-sm sm:mx-0 sm:ml-auto sm:w-auto"
               aria-label="main"
             >
               {(
@@ -187,6 +187,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
                   ["/", t("navHome")],
                   ["/radar", t("navRadar")],
                   ["/watchlist", t("navWatch")],
+                  ["/oracle", "Risk Oracle"],
                 ] as const
               ).map(([href, label]) => (
                 <Link

@@ -1,6 +1,6 @@
 import { getDb } from "@quvr/db";
 import { getProviders } from "@quvr/providers";
-import { verdictLevel } from "@quvr/scoring";
+import { earlyDiscovery, verdictLevel, type EarlyDiscoveryResult } from "@quvr/scoring";
 import { chainSlug, type PairInfo, type RiskLevel, type TokenReport } from "@quvr/shared";
 import { swr } from "./cache";
 import { safeDb } from "./persistence";
@@ -18,6 +18,9 @@ export type RadarRow = {
   distributionHealth: number | null;
   qualityAuthors: number | null;
   signalAgeMinutes: number | null;
+  holderGrowth1h: number | null;
+  holderGrowth24h: number | null;
+  newWallets24h: number | null;
   change5m: number | null;
   change1h: number | null;
   change6h: number | null;
@@ -30,6 +33,8 @@ export type RadarRow = {
   pairCreatedAt: string | null;
   /** Overall label from contract / liquidity / distribution (never "safe"). */
   verdict: RiskLevel;
+  /** Early traction ranking, kept strictly separate from the risk verdict. */
+  discovery: EarlyDiscoveryResult;
   /** Chain slug for filters: robinhood | base | solana. */
   chainKey: "robinhood" | "base" | "solana";
   /** Market columns come from a fresh Dexscreener call (true) or the stored report (false). */
@@ -37,6 +42,45 @@ export type RadarRow = {
   updatedAt: string;
   stale: boolean;
 };
+
+function discoveryFor(
+  r: Pick<
+    RadarRow,
+    | "verdict"
+    | "liquidityUsd"
+    | "marketCapUsd"
+    | "volume24hUsd"
+    | "buys24h"
+    | "sells24h"
+    | "pairCreatedAt"
+    | "socialMomentum"
+    | "qualityAuthors"
+    | "signalAgeMinutes"
+    | "holderGrowth1h"
+    | "holderGrowth24h"
+    | "newWallets24h"
+    | "change1h"
+    | "change24h"
+  >,
+): EarlyDiscoveryResult {
+  return earlyDiscovery({
+    risk: r.verdict,
+    liquidityUsd: r.liquidityUsd,
+    marketCapUsd: r.marketCapUsd,
+    volume24hUsd: r.volume24hUsd,
+    buys24h: r.buys24h,
+    sells24h: r.sells24h,
+    pairCreatedAt: r.pairCreatedAt,
+    socialMomentum: r.socialMomentum,
+    qualityAuthors: r.qualityAuthors,
+    signalAgeMinutes: r.signalAgeMinutes,
+    holderGrowth1h: r.holderGrowth1h,
+    holderGrowth24h: r.holderGrowth24h,
+    newWallets24h: r.newWallets24h,
+    change1h: r.change1h,
+    change24h: r.change24h,
+  });
+}
 
 /** Radar rows from the latest stored reports (scanned or watched tokens). */
 export async function radarRows(limit = 100): Promise<RadarRow[]> {
@@ -49,6 +93,10 @@ export async function radarRows(limit = 100): Promise<RadarRow[]> {
             token: Pick<TokenReport["token"], "symbol" | "name">;
             market: Omit<TokenReport["market"], "pairs">;
             liquidity: { mainPair: { value: { pairCreatedAt: string | null } | null } };
+            distribution: {
+              holderGrowth: TokenReport["distribution"]["holderGrowth"] | null;
+              newWallets24h: TokenReport["distribution"]["newWallets24h"] | null;
+            };
             scores: TokenReport["scores"];
           };
           qualityAuthors: number | null;
@@ -62,6 +110,9 @@ export async function radarRows(limit = 100): Promise<RadarRow[]> {
           'market', ("lastReport"->'market') - 'pairs',
           'liquidity', jsonb_build_object('mainPair', jsonb_build_object('value', jsonb_build_object(
             'pairCreatedAt', "lastReport"->'liquidity'->'mainPair'->'value'->'pairCreatedAt'))),
+          'distribution', jsonb_build_object(
+            'holderGrowth', "lastReport"->'distribution'->'holderGrowth',
+            'newWallets24h', "lastReport"->'distribution'->'newWallets24h'),
           'scores', (SELECT jsonb_object_agg(key, jsonb_build_object('value', value->'value', 'level', value->'level'))
             FROM jsonb_each("lastReport"->'scores'))
         ) AS report,
@@ -78,7 +129,7 @@ export async function radarRows(limit = 100): Promise<RadarRow[]> {
       const now = Date.now();
       return tokens.map(({ report: r, qualityAuthors, latestThesis }) => {
         const latest = latestThesis ? Date.parse(latestThesis) : null;
-        return {
+        const row = {
           address: r.address,
           symbol: r.token.symbol.value,
           name: r.token.name.value,
@@ -91,6 +142,9 @@ export async function radarRows(limit = 100): Promise<RadarRow[]> {
           distributionHealth: r.scores.distributionHealth.value,
           qualityAuthors,
           signalAgeMinutes: latest ? Math.round((now - latest) / 60_000) : null,
+          holderGrowth1h: r.distribution.holderGrowth?.value?.h1 ?? null,
+          holderGrowth24h: r.distribution.holderGrowth?.value?.h24 ?? null,
+          newWallets24h: r.distribution.newWallets24h?.value ?? null,
           change5m: r.market.priceChange.value?.m5 ?? null,
           change1h: r.market.priceChange.value?.h1 ?? null,
           change6h: r.market.priceChange?.value?.h6 ?? null,
@@ -110,6 +164,7 @@ export async function radarRows(limit = 100): Promise<RadarRow[]> {
           updatedAt: r.generatedAt,
           stale: now - Date.parse(r.generatedAt) > 10 * 60_000,
         };
+        return { ...row, discovery: discoveryFor(row) };
       });
     },
     [],
@@ -156,8 +211,8 @@ export async function radarLive(limit = 150): Promise<RadarRow[]> {
     }
     return rows.map((r) => {
       const p = pairs.get(r.address);
-      if (!p) return r;
-      return {
+      if (!p) return { ...r, discovery: discoveryFor(r) };
+      const live = {
         ...r,
         priceUsd: p.priceUsd,
         change5m: p.priceChange.m5,
@@ -172,7 +227,8 @@ export async function radarLive(limit = 150): Promise<RadarRow[]> {
         pairCreatedAt: p.pairCreatedAt ?? r.pairCreatedAt,
         live: true,
       };
+      return { ...live, discovery: discoveryFor(live) };
     });
   };
-  return (await swr(`radar:live:v1:${limit}`, { freshSeconds: 20, keepSeconds: 600 }, load)).value;
+  return (await swr(`radar:live:v2:${limit}`, { freshSeconds: 20, keepSeconds: 600 }, load)).value;
 }

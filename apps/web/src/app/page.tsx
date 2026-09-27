@@ -278,6 +278,15 @@ export default async function Home() {
           )}
         </div>
         <nav className="flex flex-col gap-2 text-sm" aria-label="proof">
+          <Link href="/oracle" className="text-signal hover:underline">
+            {tx(locale, {
+              ru: "Risk Oracle — оценки в блокчейне →",
+              en: "Risk Oracle — on-chain labels →",
+              de: "Risk Oracle — On-chain-Urteile →",
+              es: "Risk Oracle — etiquetas on-chain →",
+              zh: "Risk Oracle — 链上风险标签 →",
+            })}
+          </Link>
           <Link href="/track-record?chain=robinhood" className="text-signal hover:underline">
             {tx(locale, {
               ru: "Точность оценок →",
